@@ -1,0 +1,28 @@
+{
+  "name": "weber-nexus",
+  "description": "Webercom predictive and analysis for Banner Engineering sensors",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "homepage": "https://www.webercom.com.br/",
+  "author": {
+    "name": "Carlito Murta",
+    "email": "carlitomurtaramalho@gmail.com",
+    "url": "https://www.carlitomurta.com/"
+  },
+  "license": "UNLICENSED",
+  "packageManager": "yarn@4.14.1",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "resources/*"
+  ],
+  "devDependencies": {
+    "turbo": "^2.9.16",
+    "typescript": "^6.0.3"
+  }
+}
