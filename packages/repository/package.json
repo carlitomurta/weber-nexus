@@ -1,6 +1,6 @@
 {
-  "name": "@weber-nexus/database",
-  "description": "Database package for Nexus",
+  "name": "@weber-nexus/repository",
+  "description": "Repository package for Nexus",
   "version": "1.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,18 +22,20 @@
   "license": "UNLICENSED",
   "packageManager": "yarn@4.14.1",
   "scripts": {
-    "build": "drizzle-kit generate && drizzle-kit migrate && tsc",
-    "dev": "tsc",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "build": "tsc",
+    "dev": "tsc"
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0",
+    "@nestjs/common": "^11.0.1",
+    "@weber-nexus/database": "workspace:*",
     "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.1",
+    "drizzle-kit": "^0.31.10",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
     "typescript": "^6.0.3"
   }
 }

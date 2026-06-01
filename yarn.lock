@@ -4054,7 +4054,6 @@ __metadata:
     "@types/better-sqlite3": "npm:^7.6.13"
     "@types/node": "npm:^25.9.1"
     better-sqlite3: "npm:^12.10.0"
-    drizzle-kit: "npm:^0.31.10"
     drizzle-orm: "npm:^0.45.2"
     typescript: "npm:^6.0.3"
   languageName: unknown
@@ -4119,6 +4118,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@weber-nexus/repository@workspace:*, @weber-nexus/repository@workspace:packages/repository":
+  version: 0.0.0-use.local
+  resolution: "@weber-nexus/repository@workspace:packages/repository"
+  dependencies:
+    "@nestjs/common": "npm:^11.0.1"
+    "@types/better-sqlite3": "npm:^7.6.13"
+    "@types/node": "npm:^25.9.1"
+    "@weber-nexus/database": "workspace:*"
+    drizzle-kit: "npm:^0.31.10"
+    drizzle-orm: "npm:^0.45.2"
+    reflect-metadata: "npm:^0.2.2"
+    rxjs: "npm:^7.8.2"
+    typescript: "npm:^6.0.3"
+  languageName: unknown
+  linkType: soft
+
 "@weber-nexus/runtime@workspace:apps/runtime":
   version: 0.0.0-use.local
   resolution: "@weber-nexus/runtime@workspace:apps/runtime"
@@ -4136,9 +4151,9 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^24.0.0"
     "@types/supertest": "npm:^7.0.0"
-    "@weber-nexus/database": "workspace:*"
     "@weber-nexus/logger": "workspace:*"
     "@weber-nexus/polling-engine": "workspace:*"
+    "@weber-nexus/repository": "workspace:*"
     eslint: "npm:^9.18.0"
     eslint-config-prettier: "npm:^10.0.1"
     eslint-plugin-prettier: "npm:^5.2.2"
@@ -9901,7 +9916,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:^7.8.1":
+"rxjs@npm:^7.8.1, rxjs@npm:^7.8.2":
   version: 7.8.2
   resolution: "rxjs@npm:7.8.2"
   dependencies:

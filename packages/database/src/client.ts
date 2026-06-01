@@ -1,32 +1,39 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import SqliteDatabase, {
+  type Database as SqliteDatabaseClient,
+} from "better-sqlite3";
+import {
+  drizzle,
+  type BetterSQLite3Database,
+} from "drizzle-orm/better-sqlite3";
+import fs from "fs";
 import path from "path";
-import * as schemas from "./schemas";
+import * as schema from "./schemas/index.js";
 
-type DB = ReturnType<typeof drizzle>;
+export type Database = BetterSQLite3Database<typeof schema> & {
+  $client: SqliteDatabaseClient;
+};
 
-let database: DB;
+let database: Database | undefined;
 
-export function createDatabase(databasePath?: string): DB {
-  const sqlite = new Database(
-    databasePath ?? path.join(process.cwd(), "db", "nexus.db"),
-  );
+export function createDatabase(dbPath: string): Database {
+  const dir = path.dirname(dbPath);
+
+  fs.mkdirSync(dir, { recursive: true });
+
+  const sqlite = new SqliteDatabase(dbPath);
 
   sqlite.pragma("journal_mode = WAL");
+  sqlite.pragma("foreign_keys = ON");
 
-  database = drizzle(sqlite, {
-    schema: schemas,
-  });
+  database = drizzle(sqlite, { schema });
 
   return database;
 }
 
-export function getDatabase(): DB {
+export function getDatabase(): Database {
   if (!database) {
     throw new Error("Database not initialized");
   }
 
   return database;
 }
-
-export type Database = typeof database;

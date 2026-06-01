@@ -1,6 +1,4 @@
-import { controllers } from "./controllers";
-import { influxConfigs } from "./influx_config";
-import { sensors } from "./sensors";
-import { users } from "./users";
-
-export { controllers, influxConfigs, sensors, users };
+export { controllers } from "./controllers.js";
+export { influxConfigs } from "./influx_config.js";
+export { sensors } from "./sensors.js";
+export { users } from "./users.js";

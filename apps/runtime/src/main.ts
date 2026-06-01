@@ -7,8 +7,7 @@ const logger = new Logger('runtime/main.ts');
 async function bootstrap() {
   logger.info('Starting Nexus Runtime...');
 
-  // await initializeDatabase();
-
+  // TODO check if repository database is connected
   // logger.info('SQLite initialized');
 
   // await initializeInflux();
