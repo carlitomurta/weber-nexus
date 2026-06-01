@@ -13,6 +13,9 @@ dist-ssr
 dist-electron
 *.local
 
+# Generated route tree
+routeTree.gen.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

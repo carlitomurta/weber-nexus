@@ -1,0 +1,40 @@
+{
+  "name": "@weber-nexus/database",
+  "description": "Database package for Nexus",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "homepage": "https://www.webercom.com.br/",
+  "author": {
+    "name": "Carlito Murta",
+    "email": "carlitomurtaramalho@gmail.com",
+    "url": "https://www.carlitomurta.com/"
+  },
+  "private": true,
+  "license": "UNLICENSED",
+  "packageManager": "yarn@4.14.1",
+  "scripts": {
+    "dev": "tsc",
+    "build": "tsc",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.9.1",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3"
+  }
+}

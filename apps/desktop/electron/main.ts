@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,9 +24,18 @@ function createWindow() {
     },
   });
 
-  // Test active push message to Renderer-process.
-  win.webContents.on("did-finish-load", () => {
-    win?.webContents.send("main-process-message", new Date().toLocaleString());
+  ipcMain.handle("app:get-version", () => {
+    return app.getVersion();
+  });
+
+  ipcMain.on("update-window-title", (event, title) => {
+    if (typeof title !== "string") return;
+
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      // Truncate to 100 characters to prevent UI layout abuse
+      win.setTitle(title.substring(0, 100));
+    }
   });
 
   if (VITE_DEV_SERVER_URL) {
