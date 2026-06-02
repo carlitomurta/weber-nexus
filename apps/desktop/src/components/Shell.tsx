@@ -1,3 +1,4 @@
+import { currentUser } from "@/lib/auth";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
@@ -17,9 +18,8 @@ const nav = [
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
-
   const [version, setVersion] = useState<string>("");
-
+  const user = currentUser();
   useEffect(() => {
     (async () => {
       const version = await window.electron.app.getVersion();
@@ -93,7 +93,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span>OFFLINE · última sincronização há 20 minutos</span>
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="font-mono">CMURTA - Admin</span>
+            <span className="font-mono uppercase">{user?.name}</span>
             <span className="size-2 rounded-full bg-success" />
           </div>
         </header>

@@ -1,134 +1,108 @@
-import { StatusPill } from "@/components/shared/StatusPill";
 import {
-  getSensorMeta,
-  controllers as seedControllers,
-  type Controller,
-  type Sensor,
-  type SensorType,
-} from "@/lib/mock-data";
+  useControllers,
+  useCreateController,
+  useDeleteController,
+} from "@/hooks/useControllers";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Cpu,
-  Plus,
-  Radio,
-  Save,
-  Settings2,
-  Shield,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Cpu, Plus, Radio, Save, Shield, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import type { Controller } from "../../../types/controllers.type";
 
 export const Route = createFileRoute("/_auth/settings")({
-  head: () => ({ meta: [{ title: "Administração · Sentinel" }] }),
+  head: () => ({ meta: [{ title: "Administração" }] }),
   component: AdminPage,
 });
 
-type Draft = {
-  name: string;
-  model: Controller["model"];
-  site: string;
-  ipAddress: string;
-};
+type ControllerDraft = Omit<Controller, "id">;
 
-type SensorDraft = {
-  name: string;
-  type: SensorType;
-  location: string;
-  registerAddress: string;
-  pollingInterval: number;
-};
-
-const SENSOR_TYPES: SensorType[] = ["QM30VT2", "QM30VT3", "M12FTH4Q"];
-
-const emptyController: Draft = {
+const emptyController: ControllerDraft = {
   name: "",
-  model: "DXM700",
-  site: "",
+  model: "",
   ipAddress: "",
-};
-const emptySensor: SensorDraft = {
-  name: "",
-  type: "QM30VT2",
-  location: "",
-  registerAddress: "40001",
-  pollingInterval: 5,
+  site: "",
+  port: null,
+  pollingIntervalMs: 10000,
 };
 
 function AdminPage() {
-  const [controllers, setControllers] = useState<Controller[]>(seedControllers);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    seedControllers[0]?.id ?? null,
-  );
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<ControllerDraft>(emptyController);
+  // const [sensorDraft, setSensorDraft] = useState<SensorDraft>(emptySensor);
+  // const [showNewSensor, setShowNewSensor] = useState(false);
   const [showNewController, setShowNewController] = useState(false);
-  const [draft, setDraft] = useState<Draft>(emptyController);
-  const [sensorDraft, setSensorDraft] = useState<SensorDraft>(emptySensor);
-  const [showNewSensor, setShowNewSensor] = useState(false);
 
-  const selected = controllers.find((c) => c.id === selectedId) ?? null;
+  const { data: controllers = [] } = useControllers();
+
+  const { mutate: createController, isPending: isPendingCreateController } =
+    useCreateController({
+      onSuccess: (id) => {
+        setSelectedId(id);
+        setDraft(emptyController);
+        setShowNewController(false);
+      },
+    });
+
+  const { mutate: deleteController, isPending: isPendingDeleteController } =
+    useDeleteController();
+
+  const selected = controllers?.find((c) => c.id === selectedId) ?? null;
 
   function addController() {
     if (!draft.name.trim() || !draft.ipAddress.trim()) return;
-    const id = `dxm-${Math.random().toString(36).slice(2, 6)}`;
-    const created: Controller = {
-      id,
+    const created: ControllerDraft = {
       name: draft.name.trim(),
-      model: draft.model,
-      site: draft.site.trim() || "—",
-      status: "online",
-      uptime: "0d 00h",
+      model: draft.model.trim(),
       ipAddress: draft.ipAddress.trim(),
-      sensors: [],
+      site: draft.site.trim(),
+      port: draft.port,
+      pollingIntervalMs: draft.pollingIntervalMs,
     };
-    setControllers((prev) => [...prev, created]);
-    setSelectedId(id);
-    setDraft(emptyController);
-    setShowNewController(false);
+    createController(created);
   }
 
-  function removeController(id: string) {
-    setControllers((prev) => prev.filter((c) => c.id !== id));
-    if (selectedId === id) setSelectedId(null);
+  function removeController(controllerId: number) {
+    deleteController(controllerId);
+    if (selectedId === controllerId) setSelectedId(null);
   }
 
-  function addSensor() {
-    if (!selected || !sensorDraft.name.trim()) return;
-    const meta = getSensorMeta(sensorDraft.type);
-    const newSensor: Sensor = {
-      id: `s-${Math.random().toString(36).slice(2, 6)}`,
-      name: sensorDraft.name.trim(),
-      type: sensorDraft.type,
-      status: "online",
-      location: sensorDraft.location.trim() || "—",
-      battery: 100,
-      lastSeen: "agora",
-      readings:
-        sensorDraft.type === "M12FTH4Q"
-          ? { humidity: 0, temperature: 0 }
-          : { velocityRms: 0, temperature: 0 },
-    };
-    setControllers((prev) =>
-      prev.map((c) =>
-        c.id === selected.id ? { ...c, sensors: [...c.sensors, newSensor] } : c,
-      ),
-    );
-    setSensorDraft({
-      ...emptySensor,
-      registerAddress: nextRegister(selected, meta.label),
-    });
-    setShowNewSensor(false);
-  }
+  // function addSensor() {
+  //   if (!selected || !sensorDraft.name.trim()) return;
+  //   const meta = getSensorMeta(sensorDraft.type);
+  //   const newSensor: Sensor = {
+  //     id: `s-${Math.random().toString(36).slice(2, 6)}`,
+  //     name: sensorDraft.name.trim(),
+  //     type: sensorDraft.type,
+  //     status: "online",
+  //     location: sensorDraft.location.trim() || "—",
+  //     battery: 100,
+  //     lastSeen: "agora",
+  //     readings:
+  //       sensorDraft.type === "M12FTH4Q"
+  //         ? { humidity: 0, temperature: 0 }
+  //         : { velocityRms: 0, temperature: 0 },
+  //   };
+  //   setControllers((prev) =>
+  //     prev.map((c) =>
+  //       c.id === selected.id ? { ...c, sensors: [...c.sensors, newSensor] } : c,
+  //     ),
+  //   );
+  //   setSensorDraft({
+  //     ...emptySensor,
+  //     registerAddress: nextRegister(selected, meta.label),
+  //   });
+  //   setShowNewSensor(false);
+  // }
 
-  function removeSensor(sid: string) {
-    if (!selected) return;
-    setControllers((prev) =>
-      prev.map((c) =>
-        c.id === selected.id
-          ? { ...c, sensors: c.sensors.filter((s) => s.id !== sid) }
-          : c,
-      ),
-    );
-  }
+  // function removeSensor(sid: string) {
+  //   if (!selected) return;
+  //   setControllers((prev) =>
+  //     prev.map((c) =>
+  //       c.id === selected.id
+  //         ? { ...c, sensors: c.sensors.filter((s) => s.id !== sid) }
+  //         : c,
+  //     ),
+  //   );
+  // }
 
   return (
     <div className=" space-y-6">
@@ -198,16 +172,16 @@ function AdminPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] font-mono text-muted-foreground">
+                      {/* <span className="text-[10px] font-mono text-muted-foreground">
                         {c.sensors.length} sensores
-                      </span>
+                      </span> */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           removeController(c.id);
                         }}
                         className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        aria-label="Remover"
+                        aria-label="Remover controlador"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -249,10 +223,10 @@ function AdminPage() {
                       <span className="font-mono">{selected.ipAddress}</span>
                     </div>
                   </div>
-                  <StatusPill status={selected.status} />
+                  {/* <StatusPill status={selected.status} /> */}
                 </div>
               </div>
-
+              {/* 
               <div className="border border-border rounded-lg bg-card/60 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -344,7 +318,7 @@ function AdminPage() {
                     )}
                   </tbody>
                 </table>
-              </div>
+              </div> */}
             </>
           )}
         </div>
@@ -353,9 +327,9 @@ function AdminPage() {
   );
 }
 
-function nextRegister(c: Controller, _label?: string) {
-  return String(40001 + c.sensors.length * 4);
-}
+// function nextRegister(c: Controller, _label?: string) {
+//   return String(40001 + c.sensors.length * 4);
+// }
 
 function Field({
   label,
@@ -383,8 +357,8 @@ function NewControllerForm({
   onSave,
   onCancel,
 }: {
-  draft: Draft;
-  setDraft: (d: Draft) => void;
+  draft: ControllerDraft;
+  setDraft: (d: ControllerDraft) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -450,93 +424,93 @@ function NewControllerForm({
   );
 }
 
-function NewSensorForm({
-  draft,
-  setDraft,
-  onSave,
-  onCancel,
-}: {
-  draft: SensorDraft;
-  setDraft: (d: SensorDraft) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="p-4 border-b border-border bg-muted/20 space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Nome do sensor">
-          <input
-            autoFocus
-            className={inputCls}
-            placeholder="Ex.: Bomba Hidráulica 01"
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-        </Field>
-        <Field label="Modelo do sensor">
-          <select
-            className={inputCls}
-            value={draft.type}
-            onChange={(e) =>
-              setDraft({ ...draft, type: e.target.value as SensorType })
-            }
-          >
-            {SENSOR_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t} · {getSensorMeta(t).label}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <Field label="Localização">
-          <input
-            className={inputCls}
-            placeholder="Mancal superior"
-            value={draft.location}
-            onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-          />
-        </Field>
-        <Field label="Registro Modbus inicial">
-          <input
-            className={inputCls + " font-mono"}
-            placeholder="40001"
-            value={draft.registerAddress}
-            onChange={(e) =>
-              setDraft({ ...draft, registerAddress: e.target.value })
-            }
-          />
-        </Field>
-        <Field label="Intervalo de leitura (s)">
-          <input
-            type="number"
-            min={1}
-            className={inputCls + " font-mono"}
-            value={draft.pollingInterval}
-            onChange={(e) =>
-              setDraft({
-                ...draft,
-                pollingInterval: Number(e.target.value) || 1,
-              })
-            }
-          />
-        </Field>
-      </div>
-      <div className="flex justify-end gap-2 pt-1">
-        <button
-          onClick={onCancel}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded text-xs text-muted-foreground hover:bg-muted"
-        >
-          <X className="size-3" /> Cancelar
-        </button>
-        <button
-          onClick={onSave}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Save className="size-3" /> Salvar sensor
-        </button>
-      </div>
-    </div>
-  );
-}
+// function NewSensorForm({
+//   draft,
+//   setDraft,
+//   onSave,
+//   onCancel,
+// }: {
+//   draft: SensorDraft;
+//   setDraft: (d: SensorDraft) => void;
+//   onSave: () => void;
+//   onCancel: () => void;
+// }) {
+//   return (
+//     <div className="p-4 border-b border-border bg-muted/20 space-y-3">
+//       <div className="grid grid-cols-2 gap-3">
+//         <Field label="Nome do sensor">
+//           <input
+//             autoFocus
+//             className={inputCls}
+//             placeholder="Ex.: Bomba Hidráulica 01"
+//             value={draft.name}
+//             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+//           />
+//         </Field>
+//         <Field label="Modelo do sensor">
+//           <select
+//             className={inputCls}
+//             value={draft.type}
+//             onChange={(e) =>
+//               setDraft({ ...draft, type: e.target.value as SensorType })
+//             }
+//           >
+//             {SENSOR_TYPES.map((t) => (
+//               <option key={t} value={t}>
+//                 {t} · {getSensorMeta(t).label}
+//               </option>
+//             ))}
+//           </select>
+//         </Field>
+//       </div>
+//       <div className="grid grid-cols-3 gap-3">
+//         <Field label="Localização">
+//           <input
+//             className={inputCls}
+//             placeholder="Mancal superior"
+//             value={draft.location}
+//             onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+//           />
+//         </Field>
+//         <Field label="Registro Modbus inicial">
+//           <input
+//             className={inputCls + " font-mono"}
+//             placeholder="40001"
+//             value={draft.registerAddress}
+//             onChange={(e) =>
+//               setDraft({ ...draft, registerAddress: e.target.value })
+//             }
+//           />
+//         </Field>
+//         <Field label="Intervalo de leitura (s)">
+//           <input
+//             type="number"
+//             min={1}
+//             className={inputCls + " font-mono"}
+//             value={draft.pollingInterval}
+//             onChange={(e) =>
+//               setDraft({
+//                 ...draft,
+//                 pollingInterval: Number(e.target.value) || 1,
+//               })
+//             }
+//           />
+//         </Field>
+//       </div>
+//       <div className="flex justify-end gap-2 pt-1">
+//         <button
+//           onClick={onCancel}
+//           className="inline-flex items-center gap-1.5 h-8 px-3 rounded text-xs text-muted-foreground hover:bg-muted"
+//         >
+//           <X className="size-3" /> Cancelar
+//         </button>
+//         <button
+//           onClick={onSave}
+//           className="inline-flex items-center gap-1.5 h-8 px-3 rounded text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+//         >
+//           <Save className="size-3" /> Salvar sensor
+//         </button>
+//       </div>
+//     </div>
+//   );
+// }

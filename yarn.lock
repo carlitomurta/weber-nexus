@@ -4063,6 +4063,7 @@ __metadata:
     "@types/better-sqlite3": "npm:^7.6.13"
     "@types/node": "npm:^25.9.1"
     better-sqlite3: "npm:^12.10.0"
+    drizzle-kit: "npm:^0.31.10"
     drizzle-orm: "npm:^0.45.2"
     typescript: "npm:^6.0.3"
   languageName: unknown

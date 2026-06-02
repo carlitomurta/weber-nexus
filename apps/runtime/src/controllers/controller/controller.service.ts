@@ -15,4 +15,16 @@ export class ControllersService {
   getControllerById(id: number): Promise<Controller> {
     return this.controllersRepository.findById(id);
   }
+
+  postController(controller: Omit<Controller, 'id'>): Promise<Controller> {
+    return this.controllersRepository.insertController(controller);
+  }
+
+  updateController(controller: Controller): Promise<Controller> {
+    return this.controllersRepository.updateController(controller);
+  }
+
+  deleteController(controllerId: number) {
+    return this.controllersRepository.deleteController(controllerId);
+  }
 }

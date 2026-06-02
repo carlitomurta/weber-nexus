@@ -41,4 +41,11 @@ export class ControllersRepository {
       .returning();
     return newController;
   }
+
+  async deleteController(controllerId: number) {
+    await this.db
+      .delete(controllers)
+      .where(eq(controllers.id, controllerId))
+      .run();
+  }
 }
