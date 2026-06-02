@@ -23,6 +23,7 @@ async function bootstrap() {
   // logger.info('Health server initialized');
 
   const app = await NestFactory.create(AppModule);
+  app.enableCors({ origin: true });
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

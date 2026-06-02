@@ -5,8 +5,10 @@ import {
   drizzle,
   type BetterSQLite3Database,
 } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import * as schema from "./schemas/index.js";
 
 export type Database = BetterSQLite3Database<typeof schema> & {
@@ -26,6 +28,13 @@ export function createDatabase(dbPath: string): Database {
   sqlite.pragma("foreign_keys = ON");
 
   database = drizzle(sqlite, { schema });
+  migrate(database, {
+    migrationsFolder: path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "migrations",
+    ),
+  });
 
   return database;
 }

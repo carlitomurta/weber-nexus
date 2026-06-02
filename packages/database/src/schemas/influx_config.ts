@@ -7,3 +7,5 @@ export const influxConfigs = table("influx_configs", {
   token: text("token").notNull(),
   org: text("org").notNull(),
 });
+
+export type InfluxConfig = typeof influxConfigs.$inferSelect;

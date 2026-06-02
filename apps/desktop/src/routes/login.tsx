@@ -1,7 +1,8 @@
+import { useLogin } from "@/hooks/useLogin";
 import { login } from "@/lib/auth";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Database, Lock, Radio, Server, User } from "lucide-react";
-import { useState } from "react";
+import { isAxiosError } from "axios";
+import { Lock, Mail, Radio } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -12,20 +13,25 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState(false);
+  const loginMutation = useLogin();
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     const formData = new FormData(e.currentTarget);
-    setSubmitting(true);
-    setTimeout(() => {
-      login(
-        formData.get("usuario") ? String(formData.get("usuario")) : "operador",
-      );
+    const email = String(formData.get("email") ?? "");
+    const password = String(formData.get("password") ?? "");
+
+    try {
+      const data = await loginMutation.mutateAsync({ email, password });
+      login(data.user);
       navigate({ to: "/dashboard" });
-      setSubmitting(false);
-    }, 600);
+    } catch {
+      // The mutation state drives the visible error message.
+    }
   };
+
+  const errorMessage = getLoginErrorMessage(loginMutation.error);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
@@ -85,29 +91,31 @@ function LoginPage() {
           </div>
 
           <Field
-            icon={Server}
-            label="InfluxDB host"
-            defaultValue="localhost:8086"
+            icon={Mail}
+            label="Email"
+            name="email"
+            defaultValue="admin@admin.com"
           />
-          <Field
-            icon={Database}
-            label="Bucket"
-            defaultValue="nexus_telemetry"
-          />
-          <Field icon={User} label="Usuário" defaultValue="operador" />
           <Field
             icon={Lock}
             label="Senha"
+            name="password"
             type="password"
-            defaultValue="admin"
+            defaultValue="12345678"
           />
+
+          {errorMessage ? (
+            <div className="rounded border border-destructive/60 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+              {errorMessage}
+            </div>
+          ) : null}
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={loginMutation.isPending}
             className="w-full h-11 rounded bg-primary text-primary-foreground font-medium text-sm hover:brightness-110 transition disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {submitting ? (
+            {loginMutation.isPending ? (
               <>
                 <span className="size-3 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
                 Validando…
@@ -129,11 +137,13 @@ function LoginPage() {
 function Field({
   icon: Icon,
   label,
+  name,
   type = "text",
   defaultValue,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  name: string;
   type?: string;
   defaultValue?: string;
 }) {
@@ -145,12 +155,25 @@ function Field({
       <div className="flex items-center gap-2 h-10 px-3 rounded border border-input bg-background/60 focus-within:border-primary transition-colors">
         <Icon className="size-3.5 text-muted-foreground" />
         <input
-          name={label.toLowerCase()}
+          name={name}
           type={type}
           defaultValue={defaultValue}
+          required
           className="flex-1 bg-transparent outline-none text-sm"
         />
       </div>
     </label>
   );
+}
+
+function getLoginErrorMessage(error: unknown) {
+  if (!error) {
+    return null;
+  }
+
+  if (isAxiosError(error) && error.response?.status === 401) {
+    return "Email ou senha inválidos.";
+  }
+
+  return "Não foi possível conectar ao runtime.";
 }

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ControllerModule } from './controllers/controller.module';
+import { RepositoryModule } from '@weber-nexus/repository';
+import { AuthModule } from './auth/auth.module';
+import { ControllersModule } from './controllers/controllers.module';
 
 @Module({
-  imports: [ControllerModule],
-  controllers: [],
-  providers: [],
+  imports: [RepositoryModule, AuthModule, ControllersModule],
 })
 export class AppModule {}
