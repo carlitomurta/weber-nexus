@@ -14,7 +14,7 @@ function Dashboard() {
   const { data: controllers = [], isLoading } = useControllers();
 
   return (
-    <div className="max-w-400">
+    <>
       {/* Header */}
       <div className="flex items-end justify-between">
         <PageTitle
@@ -97,6 +97,6 @@ function Dashboard() {
           </table>
         )}
       </div>
-    </div>
+    </>
   );
 }

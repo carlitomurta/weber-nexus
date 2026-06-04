@@ -78,4 +78,8 @@
   hr {
     @apply my-5;
   }
+
+  ::placeholder {
+    @apply text-gray-600;
+  }
 }
