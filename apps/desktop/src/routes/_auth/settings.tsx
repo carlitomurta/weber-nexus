@@ -4,7 +4,14 @@ import {
   useControllers,
   useCreateController,
   useDeleteController,
+  useUpdateController,
 } from "@/hooks/useControllers";
+import {
+  useCreateSensor,
+  useDeleteSensor,
+  useSensors,
+  useUpdateSensor,
+} from "@/hooks/useSensors";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Cpu,
@@ -17,7 +24,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Controller } from "../../../types/controllers.type";
 import type { Sensor } from "../../../types/sensors.type";
@@ -32,7 +39,7 @@ type SensorDraft = Omit<Sensor, "id" | "controllerId">;
 
 const emptyController: ControllerDraft = {
   name: "",
-  model: "",
+  model: "DXM700",
   ipAddress: "",
   site: "",
   port: null,
@@ -54,6 +61,7 @@ function AdminPage() {
   const [sensorDraft, setSensorDraft] = useState<SensorDraft>(emptySensor);
   const [showNewSensor, setShowNewSensor] = useState(false);
   const [showNewController, setShowNewController] = useState(false);
+  const [editingSensorId, setEditingSensorId] = useState<number | null>(null);
   const [editingControllerId, setEditingControllerId] = useState<number | null>(
     null,
   );
@@ -64,25 +72,39 @@ function AdminPage() {
   >(null);
 
   const { data: controllers = [] } = useControllers();
-  const sensors: Sensor[] = [];
+  const { data: sensors = [] } = useSensors();
 
-  const { mutate: createController, isPending: isPendingCreateController } =
-    useCreateController({
-      onSuccess: (id) => {
-        setSelectedId(id);
-        setDraft(emptyController);
-        setShowNewController(false);
-      },
-    });
+  const { mutate: createController } = useCreateController({
+    onSuccess: (id) => {
+      setSelectedId(id);
+      setDraft(emptyController);
+      setShowNewController(false);
+    },
+  });
 
-  const { mutate: deleteController, isPending: isPendingDeleteController } =
-    useDeleteController();
+  const { mutate: deleteController } = useDeleteController();
+  const { mutate: updateController } = useUpdateController();
+  const { mutate: createSensor } = useCreateSensor();
+  const { mutate: updateSensor } = useUpdateSensor();
+  const { mutate: deleteSensor } = useDeleteSensor();
 
   const selected = controllers?.find((c) => c.id === selectedId) ?? null;
   const editing = controllers.find((c) => c.id === editingControllerId) ?? null;
+  const selectedSensors = selected
+    ? sensors.filter((s) => s.controllerId === selected.id)
+    : [];
+
+  useEffect(() => {
+    if (selectedId === null && controllers.length > 0) {
+      setSelectedId(controllers[0].id);
+    }
+  }, [controllers, selectedId]);
 
   function addController() {
-    if (!draft.name.trim() || !draft.ipAddress.trim()) return;
+    if (!draft.name.trim() || !draft.ipAddress.trim()) {
+      toast.error("Informe nome e endereço IP do controlador.");
+      return;
+    }
     const created: ControllerDraft = {
       name: draft.name.trim(),
       model: draft.model.trim(),
@@ -91,22 +113,88 @@ function AdminPage() {
       port: draft.port,
       pollingIntervalMs: draft.pollingIntervalMs,
     };
-    createController(created);
+    createController(created, {
+      onSuccess: () => toast.success("Controlador criado."),
+      onError: () => toast.error("Não foi possível criar o controlador."),
+    });
   }
 
   function removeController(controllerId: number) {
-    deleteController(controllerId);
-    if (selectedId === controllerId) setSelectedId(null);
+    deleteController(controllerId, {
+      onSuccess: () => {
+        if (selectedId === controllerId) setSelectedId(null);
+        toast.success("Controlador removido.");
+      },
+      onError: () => toast.error("Não foi possível remover o controlador."),
+    });
   }
 
-  function addSensor() {}
+  function addSensor() {
+    if (!selected) return;
+    const sensor = buildSensorPayload(sensorDraft, selected.id);
 
-  function removeSensor() {}
+    if (!sensor) return;
+
+    createSensor(sensor, {
+      onSuccess: () => {
+        setSensorDraft(emptySensor);
+        setShowNewSensor(false);
+        toast.success("Sensor adicionado.");
+      },
+      onError: () => toast.error("Não foi possível adicionar o sensor."),
+    });
+  }
+
+  function startEditSensor(sensor: Sensor) {
+    setShowNewSensor(false);
+    setEditingSensorId(sensor.id);
+    setSensorDraft({
+      modbusId: sensor.modbusId,
+      name: sensor.name,
+      description: sensor.description ?? "",
+      location: sensor.location ?? "",
+      model: sensor.model ?? "",
+      registers: sensor.registers,
+    });
+  }
+
+  function saveEditSensor() {
+    const sensor = sensors.find((s) => s.id === editingSensorId);
+    if (!sensor) return;
+    const payload = buildSensorPayload(sensorDraft, sensor.controllerId);
+
+    if (!payload) return;
+
+    updateSensor(
+      { ...sensor, ...payload },
+      {
+        onSuccess: () => {
+          setEditingSensorId(null);
+          setSensorDraft(emptySensor);
+          toast.success("Sensor atualizado.");
+        },
+        onError: () => toast.error("Não foi possível atualizar o sensor."),
+      },
+    );
+  }
+
+  function removeSensor(sensorId: number) {
+    deleteSensor(sensorId, {
+      onSuccess: () => {
+        if (editingSensorId === sensorId) {
+          setEditingSensorId(null);
+          setSensorDraft(emptySensor);
+        }
+        toast.success("Sensor removido.");
+      },
+      onError: () => toast.error("Não foi possível remover o sensor."),
+    });
+  }
 
   function handleConfirm() {
     if (!confirm) return;
     if (confirm.kind === "controller") removeController(confirm.id);
-    // else removeSensor(confirm.id);
+    else removeSensor(confirm.id);
     setConfirm(null);
   }
 
@@ -116,8 +204,22 @@ function AdminPage() {
       toast.error("Informe nome e endereço IP do controlador.");
       return;
     }
-    setEditingControllerId(null);
-    toast.success("Controlador atualizado.");
+    updateController(
+      {
+        ...patch,
+        name: patch.name.trim(),
+        model: patch.model.trim(),
+        ipAddress: patch.ipAddress.trim(),
+        site: patch.site.trim(),
+      },
+      {
+        onSuccess: () => {
+          setEditingControllerId(null);
+          toast.success("Controlador atualizado.");
+        },
+        onError: () => toast.error("Não foi possível atualizar o controlador."),
+      },
+    );
   }
 
   return (
@@ -263,11 +365,13 @@ function AdminPage() {
                     <div className="flex items-center gap-2">
                       <Settings2 className="size-3.5 text-muted-foreground" />
                       <div className="text-[10px] font-mono tracking-[0.16em] uppercase text-muted-foreground">
-                        Sensores e registros · {sensors.length}
+                        Sensores e registros · {selectedSensors.length}
                       </div>
                     </div>
                     <button
                       onClick={() => {
+                        setEditingSensorId(null);
+                        setSensorDraft(emptySensor);
                         setShowNewSensor(true);
                       }}
                       className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-xs bg-primary/15 text-primary hover:bg-primary/25"
@@ -278,10 +382,29 @@ function AdminPage() {
 
                   {showNewSensor && (
                     <NewSensorForm
+                      key="new-sensor"
+                      title="Novo sensor"
                       draft={sensorDraft}
                       setDraft={setSensorDraft}
                       onSave={addSensor}
-                      onCancel={() => setShowNewSensor(false)}
+                      onCancel={() => {
+                        setShowNewSensor(false);
+                        setSensorDraft(emptySensor);
+                      }}
+                    />
+                  )}
+
+                  {editingSensorId !== null && (
+                    <NewSensorForm
+                      key={editingSensorId}
+                      title="Editar sensor"
+                      draft={sensorDraft}
+                      setDraft={setSensorDraft}
+                      onSave={saveEditSensor}
+                      onCancel={() => {
+                        setEditingSensorId(null);
+                        setSensorDraft(emptySensor);
+                      }}
                     />
                   )}
 
@@ -304,7 +427,7 @@ function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sensors.map((s) => (
+                      {selectedSensors.map((s) => (
                         <tr
                           key={s.id}
                           className="border-b border-border/60 last:border-0"
@@ -325,34 +448,42 @@ function AdminPage() {
                             {s.registers.join(", ")}
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            <button
-                              onClick={() =>
-                                setConfirm({
-                                  kind: "sensor",
-                                  id: s.id,
-                                  name: s.name,
-                                })
-                              }
-                              className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => startEditSensor(s)}
+                                className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                aria-label="Editar sensor"
+                              >
+                                <Pencil className="size-3.5" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setConfirm({
+                                    kind: "sensor",
+                                    id: s.id,
+                                    name: s.name,
+                                  })
+                                }
+                                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                aria-label="Remover sensor"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
-                      {sensors.filter((s) => s.controllerId === selected?.id)
-                        .length === 0 &&
-                        !showNewSensor && (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-10 text-center text-xs text-muted-foreground"
-                            >
-                              Nenhum sensor configurado. Clique em "Adicionar
-                              sensor".
-                            </td>
-                          </tr>
-                        )}
+                      {selectedSensors.length === 0 && !showNewSensor && (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="px-4 py-10 text-center text-xs text-muted-foreground"
+                          >
+                            Nenhum sensor configurado. Clique em "Adicionar
+                            sensor".
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -409,6 +540,40 @@ function Field({
 
 const inputCls =
   "w-full h-9 px-2.5 rounded bg-background border border-border text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary";
+
+function buildSensorPayload(draft: SensorDraft, controllerId: number) {
+  if (!draft.name.trim()) {
+    toast.error("Informe o nome do sensor.");
+    return null;
+  }
+
+  if (!Number.isInteger(draft.modbusId) || draft.modbusId <= 0) {
+    toast.error("Informe um ID Modbus válido.");
+    return null;
+  }
+
+  if (draft.registers.length === 0) {
+    toast.error("Informe ao menos um registro Modbus.");
+    return null;
+  }
+
+  return {
+    controllerId,
+    modbusId: draft.modbusId,
+    name: draft.name.trim(),
+    description: draft.description?.trim() || null,
+    location: draft.location?.trim() || null,
+    model: draft.model?.trim() || null,
+    registers: draft.registers,
+  };
+}
+
+function parseRegisters(value: string) {
+  return value
+    .split(",")
+    .map((register) => Number(register.trim()))
+    .filter((register) => Number.isInteger(register) && register > 0);
+}
 
 function NewControllerForm({
   draft,
@@ -484,18 +649,27 @@ function NewControllerForm({
 }
 
 function NewSensorForm({
+  title,
   draft,
   setDraft,
   onSave,
   onCancel,
 }: {
+  title: string;
   draft: SensorDraft;
   setDraft: (d: SensorDraft) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const [registersText, setRegistersText] = useState(
+    draft.registers.join(", "),
+  );
+
   return (
     <div className="p-4 border-b border-border bg-muted/20 space-y-3">
+      <div className="text-[10px] font-mono tracking-[0.16em] uppercase text-muted-foreground">
+        {title}
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Nome do sensor">
           <input
@@ -506,56 +680,61 @@ function NewSensorForm({
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
         </Field>
-        {/* <Field label="Modelo do sensor">
-          <select
+        <Field label="Modelo do sensor">
+          <input
             className={inputCls}
-            value={draft.type}
-            onChange={(e) =>
-              setDraft({ ...draft, type: e.target.value as SensorType })
-            }
-          >
-            {SENSOR_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t} · {getSensorMeta(t).label}
-              </option>
-            ))}
-          </select>
-        </Field> */}
+            placeholder="Ex.: QM30VT2"
+            value={draft.model ?? ""}
+            onChange={(e) => setDraft({ ...draft, model: e.target.value })}
+          />
+        </Field>
       </div>
-      {/* <div className="grid grid-cols-3 gap-3">
-        <Field label="Localização">
-          <input
-            className={inputCls}
-            placeholder="Mancal superior"
-            value={draft.location}
-            onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-          />
-        </Field>
-        <Field label="Registro Modbus inicial">
-          <input
-            className={inputCls + " font-mono"}
-            placeholder="40001"
-            value={draft.registerAddress}
-            onChange={(e) =>
-              setDraft({ ...draft, registerAddress: e.target.value })
-            }
-          />
-        </Field>
-        <Field label="Intervalo de leitura (s)">
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="ID Modbus">
           <input
             type="number"
             min={1}
             className={inputCls + " font-mono"}
-            value={draft.pollingInterval}
+            value={draft.modbusId}
             onChange={(e) =>
               setDraft({
                 ...draft,
-                pollingInterval: Number(e.target.value) || 1,
+                modbusId: Number(e.target.value) || 0,
               })
             }
           />
         </Field>
-      </div> */}
+        <Field label="Localização">
+          <input
+            className={inputCls}
+            placeholder="Mancal superior"
+            value={draft.location ?? ""}
+            onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+          />
+        </Field>
+        <Field label="Registros Modbus">
+          <input
+            className={inputCls + " font-mono"}
+            placeholder="40001, 40002"
+            value={registersText}
+            onChange={(e) => {
+              setRegistersText(e.target.value);
+              setDraft({
+                ...draft,
+                registers: parseRegisters(e.target.value),
+              });
+            }}
+          />
+        </Field>
+      </div>
+      <Field label="Descrição">
+        <input
+          className={inputCls}
+          placeholder="Ex.: Vibração e temperatura do conjunto"
+          value={draft.description ?? ""}
+          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+        />
+      </Field>
       <div className="flex justify-end gap-2 pt-1">
         <button
           onClick={onCancel}

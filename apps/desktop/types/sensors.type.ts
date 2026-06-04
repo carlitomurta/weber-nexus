@@ -8,7 +8,7 @@ const sensorSchema = z.object({
   description: z.string().nullable(),
   model: z.string().nullable(),
   location: z.string().nullable(),
-  registers: z.array(z.string()),
+  registers: z.array(z.number()),
 });
 
 export type Sensor = z.infer<typeof sensorSchema>;
