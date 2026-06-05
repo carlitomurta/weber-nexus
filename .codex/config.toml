@@ -7,3 +7,7 @@ MORPH_API_KEY = "sk-XhaDmrOkgGZ1x8NdkvapmTz1tuyyQKqH8OxVGtm-Ta0_RQm0"
 
 [mcp_servers.morph-mcp.tools.codebase_search]
 approval_mode = "approve"
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
