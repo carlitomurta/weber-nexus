@@ -36,6 +36,11 @@ export type PollingEngineOptions = {
   onConnection?: (controller: PollingController) => void;
   onData?: (result: ControllerPollingResult) => void | Promise<void>;
   onError?: (error: unknown, controller: PollingController) => void;
+  retry?: {
+    attempts?: number;
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+  };
 };
 
 type ControllerPollingJob = {
@@ -64,6 +69,7 @@ export class PollingEngine {
       connection: createControllerConnection({
         protocol: controller.protocol,
         host: controller.ipAddress,
+        timeoutMs: 5000,
       }),
       connectionLogged: false,
       running: false,
@@ -98,40 +104,81 @@ export class PollingEngine {
     job.running = true;
 
     try {
-      await job.connection.connect();
-      if (!job.connectionLogged) {
-        this.options.onConnection?.(job.controller);
-        job.connectionLogged = true;
-      }
-
-      const results: SensorPollingResult[] = [];
-
-      for (const sensor of job.sensors) {
-        const registers = await job.connection.readHoldingRegisters(
-          sensor.modbusId,
-          sensor.registers,
-        );
-
-        results.push({
-          sensor,
-          registers,
-        });
-      }
-
-      await this.options.onData?.({
-        controller: job.controller,
-        results,
-        polledAt: new Date(),
-      });
+      await this.runWithRetry(job, () => this.readController(job));
     } catch (error) {
       this.options.onError?.(error, job.controller);
+      await job.connection.close();
+      job.connectionLogged = false;
     } finally {
       job.running = false;
     }
+  }
+
+  private async readController(job: ControllerPollingJob): Promise<void> {
+    await job.connection.connect();
+    if (!job.connectionLogged) {
+      this.options.onConnection?.(job.controller);
+      job.connectionLogged = true;
+    }
+
+    const results: SensorPollingResult[] = [];
+
+    for (const sensor of job.sensors) {
+      const registers = await job.connection.readHoldingRegisters(
+        sensor.modbusId,
+        sensor.registers,
+      );
+
+      results.push({
+        sensor,
+        registers,
+      });
+    }
+
+    await this.options.onData?.({
+      controller: job.controller,
+      results,
+      polledAt: new Date(),
+    });
+  }
+
+  private async runWithRetry(
+    job: ControllerPollingJob,
+    operation: () => Promise<void>,
+  ): Promise<void> {
+    const attempts = this.options.retry?.attempts ?? 3;
+    const initialDelayMs = this.options.retry?.initialDelayMs ?? 500;
+    const maxDelayMs = this.options.retry?.maxDelayMs ?? 5000;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        await operation();
+        return;
+      } catch (error) {
+        lastError = error;
+
+        if (attempt >= attempts) break;
+
+        await job.connection.close();
+        job.connectionLogged = false;
+        await sleep(
+          Math.min(initialDelayMs * 2 ** (attempt - 1), maxDelayMs),
+        );
+      }
+    }
+
+    throw lastError;
   }
 }
 
 function normalizePollingInterval(intervalMs: number): number {
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) return 300000;
   return intervalMs;
+}
+
+function sleep(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
 }

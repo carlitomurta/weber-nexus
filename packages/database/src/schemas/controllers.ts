@@ -8,5 +8,7 @@ export const controllers = table("controllers", {
   site: text("site"),
   port: integer("port").default(0),
   isMultihop: integer("is_multihop", { mode: "boolean" }).default(false),
+  operationalStatus: text("operational_status").notNull().default("active"),
   pollingIntervalMs: integer("polling_interval_ms").notNull().default(300000),
+  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 });

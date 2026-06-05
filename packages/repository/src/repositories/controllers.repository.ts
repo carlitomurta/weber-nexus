@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { controllers, type Database } from "@weber-nexus/database";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
 import { DB_TOKEN } from "../database.constants.js";
 
@@ -13,10 +13,13 @@ export class ControllersRepository {
   constructor(@Inject(DB_TOKEN) private readonly db: Database) {}
 
   async findAll(): Promise<Controller[]> {
-    return this.db.select().from(controllers);
+    return this.db
+      .select()
+      .from(controllers)
+      .where(isNull(controllers.deletedAt));
   }
 
-  async findById(id: number): Promise<Controller> {
+  async findById(id: number): Promise<Controller | undefined> {
     const [controller] = await this.db
       .select()
       .from(controllers)
@@ -37,16 +40,25 @@ export class ControllersRepository {
     const { id, ...controllerData } = controller;
     const [newController] = await this.db
       .update(controllers)
-      .set(controllerData)
+      .set({ ...controllerData, updatedAt: new Date() })
       .where(eq(controllers.id, id))
       .returning();
     return newController;
   }
 
-  async deleteController(controllerId: number) {
-    await this.db
-      .delete(controllers)
+  async deleteController(
+    controllerId: number,
+  ): Promise<Controller | undefined> {
+    const [controller] = await this.db
+      .update(controllers)
+      .set({
+        deletedAt: new Date(),
+        operationalStatus: "removed",
+        updatedAt: new Date(),
+      })
       .where(eq(controllers.id, controllerId))
-      .run();
+      .returning();
+
+    return controller;
   }
 }

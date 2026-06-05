@@ -12,8 +12,10 @@ export const sensors = table("sensors", {
   description: text("description"),
   model: text("model"),
   location: text("location"),
+  operationalStatus: text("operational_status").notNull().default("active"),
   registers: text("registers", { mode: "json" })
     .notNull()
     .$type<number[]>()
     .default(sql`'[]'`),
+  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 });

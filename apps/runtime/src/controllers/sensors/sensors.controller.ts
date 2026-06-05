@@ -7,10 +7,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import type {
-  NewSensor,
-  SensorWrite,
-} from '@weber-nexus/repository';
+import type { NewSensor, SensorWrite } from '@weber-nexus/repository';
 import { SensorsService } from './sensors.service';
 
 @Controller('sensors')

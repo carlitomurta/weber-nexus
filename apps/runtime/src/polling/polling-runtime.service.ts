@@ -22,6 +22,11 @@ export class PollingRuntimeService
   private readonly logger = new Logger('runtime/polling-runtime.service.ts');
 
   private readonly pollingEngine = new PollingEngine({
+    retry: {
+      attempts: 3,
+      initialDelayMs: 500,
+      maxDelayMs: 5000,
+    },
     onConnection: (controller) => {
       this.logger.info(
         `Connected to controller ${controller.id} (${controller.name}) at ${controller.ipAddress}:502 via Modbus TCP`,
@@ -55,6 +60,10 @@ export class PollingRuntimeService
 
   onApplicationShutdown(): void {
     this.pollingEngine.stop();
+  }
+
+  stopController(controllerId: number): void {
+    this.pollingEngine.stopController(controllerId);
   }
 
   async refreshController(controllerId: number): Promise<void> {
