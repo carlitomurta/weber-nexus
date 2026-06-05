@@ -26,16 +26,24 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { Controller } from "../../../types/controllers.type";
-import type { Sensor } from "../../../types/sensors.type";
+import type {
+  Controller,
+  ControllerWrite,
+  CreateControllerInput,
+} from "../../../types/controllers.type";
+import type {
+  CreateSensorInput,
+  Sensor,
+  SensorWrite,
+} from "../../../types/sensors.type";
 
 export const Route = createFileRoute("/_auth/settings")({
   head: () => ({ meta: [{ title: "Administração" }] }),
   component: AdminPage,
 });
 
-type ControllerDraft = Omit<Controller, "id">;
-type SensorDraft = Omit<Sensor, "id" | "controllerId">;
+type ControllerDraft = CreateControllerInput;
+type SensorDraft = Omit<CreateSensorInput, "controllerId">;
 
 const emptyController: ControllerDraft = {
   name: "",
@@ -165,8 +173,13 @@ function AdminPage() {
 
     if (!payload) return;
 
+    const updatedSensor: SensorWrite = {
+      id: sensor.id,
+      ...payload,
+    };
+
     updateSensor(
-      { ...sensor, ...payload },
+      updatedSensor,
       {
         onSuccess: () => {
           setEditingSensorId(null);
@@ -198,7 +211,7 @@ function AdminPage() {
     setConfirm(null);
   }
 
-  function saveEditController(patch: Controller) {
+  function saveEditController(patch: ControllerWrite) {
     if (!editingControllerId) return;
     if (!patch.name.trim() || !patch.ipAddress.trim()) {
       toast.error("Informe nome e endereço IP do controlador.");

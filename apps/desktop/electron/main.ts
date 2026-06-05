@@ -1,6 +1,8 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { spawn } from "node:child_process";
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { app, BrowserWindow, ipcMain } from "electron";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +17,58 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST;
 
 let win: BrowserWindow | null;
+let runtimeStarted = false;
+
+async function ensureRuntimeProcess() {
+  if (runtimeStarted || process.env.NEXUS_DISABLE_RUNTIME_SPAWN === "1") {
+    return;
+  }
+
+  const runtimeUrl =
+    process.env.VITE_RUNTIME_API_URL ?? process.env.NEXUS_RUNTIME_API_URL;
+
+  if (await isRuntimeReachable(runtimeUrl ?? "http://localhost:3000")) {
+    console.info("[Nexus Runtime] Runtime API is already reachable.");
+    runtimeStarted = true;
+    return;
+  }
+
+  const workspaceRoot = path.resolve(process.env.APP_ROOT, "../..");
+  const command = process.platform === "win32" ? "yarn.cmd" : "yarn";
+  const stdio = VITE_DEV_SERVER_URL ? "inherit" : "ignore";
+
+  console.info("[Nexus Runtime] Starting background runtime process...");
+
+  const child = spawn(command, ["workspace", "@weber-nexus/runtime", "dev"], {
+    cwd: workspaceRoot,
+    detached: true,
+    stdio,
+    windowsHide: true,
+  });
+
+  child.on("error", (error) => {
+    console.error("[Nexus Runtime] Failed to start runtime process", error);
+  });
+
+  child.unref();
+  runtimeStarted = true;
+}
+
+function isRuntimeReachable(runtimeUrl: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const request = http.get(runtimeUrl, (response) => {
+      response.resume();
+      resolve(true);
+    });
+
+    request.setTimeout(1000, () => {
+      request.destroy();
+      resolve(false);
+    });
+
+    request.on("error", () => resolve(false));
+  });
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -64,4 +118,7 @@ app.on("activate", () => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  await ensureRuntimeProcess();
+  createWindow();
+});

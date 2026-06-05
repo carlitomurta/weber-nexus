@@ -10,13 +10,12 @@ export const id = {
 };
 
 export const timestamps = {
-  createdAt: integer("created_at", {
-    mode: "timestamp_ms",
-  }).default(sql`(unixepoch() * 1000)`),
-
-  updatedAt: integer("updated_at", {
-    mode: "timestamp_ms",
-  }).default(sql`(unixepoch() * 1000)`),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).default(
+    sql`(unixepoch() * 1000)`,
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(
+    sql`(unixepoch() * 1000)`,
+  ),
 };
 
 export const table = <

@@ -7,8 +7,11 @@ export const sensors = table("sensors", {
   controllerId: integer("controller_id")
     .references(() => controllers.id)
     .notNull(),
+  modbusId: integer("modbus_id").notNull(),
   name: text("name").notNull(),
-  nodeId: integer("node_id").notNull(),
+  description: text("description"),
+  model: text("model"),
+  location: text("location"),
   registers: text("registers", { mode: "json" })
     .notNull()
     .$type<number[]>()

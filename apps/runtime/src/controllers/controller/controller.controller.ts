@@ -7,7 +7,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import type { Controller as ControllerType } from '@weber-nexus/repository';
+import type { ControllerWrite, NewController } from '@weber-nexus/repository';
 import { ControllersService } from './controller.service';
 
 @Controller('controllers')
@@ -19,23 +19,23 @@ export class ControllersController {
     return this.service.getAllControllers();
   }
 
-  @Get()
-  findById(@Param('id') id: number) {
-    return this.service.getControllerById(id);
+  @Get(':id')
+  findById(@Param('id') id: string) {
+    return this.service.getControllerById(Number(id));
   }
 
   @Post()
-  create(@Body() controller: Omit<ControllerType, 'id'>) {
+  create(@Body() controller: NewController) {
     return this.service.postController(controller);
   }
 
   @Patch()
-  update(@Body() controller: ControllerType) {
+  update(@Body() controller: ControllerWrite) {
     return this.service.updateController(controller);
   }
 
-  @Delete()
-  delete(@Param('id') controllerId: number) {
-    return this.service.deleteController(controllerId);
+  @Delete(':id')
+  delete(@Param('id') controllerId: string) {
+    return this.service.deleteController(Number(controllerId));
   }
 }

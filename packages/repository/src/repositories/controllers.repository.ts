@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { DB_TOKEN } from "../database.constants.js";
 
 export type Controller = typeof controllers.$inferSelect;
+export type NewController = typeof controllers.$inferInsert;
+export type ControllerWrite = Omit<Controller, "createdAt" | "updatedAt">;
 
 @Injectable()
 export class ControllersRepository {
@@ -23,9 +25,7 @@ export class ControllersRepository {
     return controller;
   }
 
-  async insertController(
-    controller: Omit<Controller, "id">,
-  ): Promise<Controller> {
+  async insertController(controller: NewController): Promise<Controller> {
     const [newController] = await this.db
       .insert(controllers)
       .values(controller)
@@ -33,11 +33,12 @@ export class ControllersRepository {
     return newController;
   }
 
-  async updateController(controller: Controller): Promise<Controller> {
+  async updateController(controller: ControllerWrite): Promise<Controller> {
+    const { id, ...controllerData } = controller;
     const [newController] = await this.db
       .update(controllers)
-      .set(controller)
-      .where(eq(controllers.id, controller.id))
+      .set(controllerData)
+      .where(eq(controllers.id, id))
       .returning();
     return newController;
   }

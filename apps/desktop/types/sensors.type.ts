@@ -9,6 +9,10 @@ const sensorSchema = z.object({
   model: z.string().nullable(),
   location: z.string().nullable(),
   registers: z.array(z.number()),
+  createdAt: z.date().nullish(),
+  updatedAt: z.date().nullish(),
 });
 
 export type Sensor = z.infer<typeof sensorSchema>;
+export type SensorWrite = Omit<Sensor, "createdAt" | "updatedAt">;
+export type CreateSensorInput = Omit<SensorWrite, "id">;

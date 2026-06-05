@@ -9,7 +9,10 @@ import {
   AlertDialogTitle,
 } from "@/components/shared/ui/alert-dialog";
 import { useEffect, useState } from "react";
-import type { Controller } from "../../../types/controllers.type";
+import type {
+  Controller,
+  ControllerWrite,
+} from "../../../types/controllers.type";
 
 type ControllerDraft = {
   name: string;
@@ -30,7 +33,7 @@ export function EditControllerDialog({
   controller: Controller;
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onSave: (patch: Controller) => void;
+  onSave: (patch: ControllerWrite) => void;
 }) {
   const [draft, setDraft] = useState<ControllerDraft>({
     name: "",
@@ -104,7 +107,15 @@ export function EditControllerDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => onSave({ ...controller, ...draft })}
+            onClick={() =>
+              onSave({
+                id: controller.id,
+                port: controller.port,
+                isMultihop: controller.isMultihop,
+                pollingIntervalMs: controller.pollingIntervalMs,
+                ...draft,
+              })
+            }
           >
             Salvar alterações
           </AlertDialogAction>

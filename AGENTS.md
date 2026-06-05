@@ -110,6 +110,14 @@ yarn test
 yarn lint
 ```
 
+### Formatting
+
+Only on /apps/ projects
+
+```bash
+yarn prettier
+```
+
 ## License
 
 Proprietary

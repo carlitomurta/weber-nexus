@@ -15,6 +15,7 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "dev": "nest start",
+    "stop": "node -e \"fetch('http://localhost:3000/runtime/stop', { method: 'POST' }).then(async (res) => { console.log(await res.text()); process.exit(res.ok ? 0 : 1); }).catch((error) => { console.error(error.message); process.exit(1); })\"",
     "start": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",

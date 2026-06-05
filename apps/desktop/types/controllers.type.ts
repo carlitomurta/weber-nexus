@@ -17,6 +17,10 @@ export const controllersSchema = z.array(controllerSchema);
 
 export const createControllerRequestSchema = controllerSchema.omit({
   id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type Controller = z.infer<typeof controllerSchema>;
+export type ControllerWrite = Omit<Controller, "createdAt" | "updatedAt">;
+export type CreateControllerInput = Omit<ControllerWrite, "id">;

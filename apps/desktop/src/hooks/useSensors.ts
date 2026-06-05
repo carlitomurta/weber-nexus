@@ -1,6 +1,10 @@
 import { api } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Sensor } from "../../types/sensors.type";
+import type {
+  CreateSensorInput,
+  Sensor,
+  SensorWrite,
+} from "../../types/sensors.type";
 
 export function useSensors() {
   return useQuery({
@@ -16,7 +20,7 @@ export function useCreateSensor() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: Omit<Sensor, "id">) => {
+    mutationFn: async (input: CreateSensorInput) => {
       const { data } = await api.post<Sensor>("/sensors", input);
       return data;
     },
@@ -30,7 +34,7 @@ export function useUpdateSensor() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: Sensor) => {
+    mutationFn: async (input: SensorWrite) => {
       const { data } = await api.patch<Sensor>("/sensors", input);
       return data;
     },

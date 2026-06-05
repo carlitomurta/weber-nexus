@@ -1,6 +1,10 @@
 import { api } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type Controller } from "../../types/controllers.type";
+import type {
+  Controller,
+  ControllerWrite,
+  CreateControllerInput,
+} from "../../types/controllers.type";
 
 export function useControllers() {
   return useQuery({
@@ -19,7 +23,7 @@ export function useCreateController({
 }) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: Omit<Controller, "id">) => {
+    mutationFn: async (input: CreateControllerInput) => {
       const { data } = await api.post<Controller>("/controllers", input);
       return data;
     },
@@ -28,9 +32,9 @@ export function useCreateController({
 
       const previousTodos = queryClient.getQueryData(["controllers"]);
 
-      queryClient.setQueryData(["controllers"], (old: Controller[]) => [
+      queryClient.setQueryData(["controllers"], (old: Controller[] = []) => [
         ...old,
-        newController,
+        newController as Controller,
       ]);
 
       return { previousTodos };
@@ -50,7 +54,7 @@ export function useCreateController({
 export function useUpdateController() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: Controller) => {
+    mutationFn: async (input: ControllerWrite) => {
       const { data } = await api.patch<Controller>("/controllers", input);
       return data;
     },
@@ -61,7 +65,9 @@ export function useUpdateController() {
 
       queryClient.setQueryData(["controllers"], (old: Controller[]) =>
         old.map((controller) =>
-          controller.id === newController.id ? newController : controller,
+          controller.id === newController.id
+            ? { ...controller, ...newController }
+            : controller,
         ),
       );
 
