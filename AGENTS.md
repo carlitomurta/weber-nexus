@@ -1,4 +1,4 @@
-# Nexus
+# Weber Nexus - General Instructions
 
 A desktop platform and distributed ecosystem for configuration, orchestration, and real-time data acquisition from industrial controllers.
 
@@ -19,6 +19,23 @@ The platform is built to:
 - Support multiple industrial communication protocols.
 - Enable future predictive maintenance and machine learning workflows.
 - Provide a scalable architecture for industrial monitoring and automation.
+
+## Global Rules
+
+- Use TypeScript.
+- Always use UTC for timestamps.
+- The system must work offline.
+- Do not depend on DNS or the internet.
+- Do not expose Modbus to the internet.
+- Do not open unnecessary ports.
+- Do not enable direct cloud access to DXM.
+- Persist registrations/configurations in SQLite.
+- Persist readings and time series in InfluxDB.
+- The runtime project should work on the background.
+- Implement retry, reconnect, watchdog, and health checks.
+- Survive reboot, power outage, cable disconnection, and DXM shutdown.
+- Do not use external queuing tools; implement your own persistent queuing logic.
+- Prefer simple, explicit, and testable code.
 
 ## Architecture
 
