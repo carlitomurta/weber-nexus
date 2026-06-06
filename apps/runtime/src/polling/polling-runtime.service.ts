@@ -113,9 +113,21 @@ export class PollingRuntimeService
       sensors.map((sensor) => ({
         id: sensor.id,
         controllerId: sensor.controllerId,
-        modbusId: sensor.modbusId,
+        nodeId: sensor.nodeId,
         name: sensor.name,
-        registers: sensor.registers,
+        registers: sensor.registers.map((register) => {
+          const legacyRegister = register as typeof register & {
+            scale?: number;
+          };
+
+          return {
+            name: register.name,
+            address: register.address,
+            scaleType: register.scaleType ?? 'multiply',
+            scaleFactor: register.scaleFactor ?? legacyRegister.scale ?? 1,
+            unit: register.unit,
+          };
+        }),
       })),
     );
 
@@ -128,19 +140,17 @@ export class PollingRuntimeService
     const readings = result.results.map((sensorResult) => ({
       sensorId: sensorResult.sensor.id,
       sensorName: sensorResult.sensor.name,
-      modbusId: sensorResult.sensor.modbusId,
+      nodeId: sensorResult.sensor.nodeId,
       registers: sensorResult.registers,
     }));
 
     this.logger.info(
-      '[PULLED]',
-      JSON.stringify({
-        controllerId: result.controller.id,
-        controllerName: result.controller.name,
-        ipAddress: result.controller.ipAddress,
-        polledAt: result.polledAt.toISOString(),
-        readings,
-      }),
+      `[PULLED]: ${result.polledAt.toLocaleTimeString()}`,
+      readings.map((r) =>
+        r.registers
+          .map((a) => `${a.register.name}: ${a.scaledValue}${a.register.unit}`)
+          .join(', '),
+      ),
     );
   }
 }

@@ -1,3 +1,4 @@
+import { Logger } from "@weber-nexus/logger";
 import { createRequire } from "node:module";
 
 type ModbusRTUConstructor = new () => ModbusRTUClient;
@@ -12,6 +13,8 @@ type ModbusRTUClient = {
   setID(id: number): void;
   setTimeout(duration: number): void;
 };
+
+const logger = new Logger("modbus");
 
 const require = createRequire(import.meta.url);
 const ModbusRTU = require("modbus-serial") as ModbusRTUConstructor;
@@ -66,6 +69,7 @@ export class ModbusTcpConnection implements ControllerConnection {
     this.client.setTimeout(this.config.timeoutMs ?? 5000);
     await this.client.connectTCP(this.config.host, { port: MODBUS_TCP_PORT });
     this.connected = true;
+    logger.info(`Controller connected IP:${this.config.host}`);
   }
 
   async close(): Promise<void> {
@@ -75,6 +79,7 @@ export class ModbusTcpConnection implements ControllerConnection {
       this.client.close(() => resolve());
     });
     this.connected = false;
+    logger.info(`Controller closed IP:${this.config.host}`);
   }
 
   async readHoldingRegisters(
@@ -84,17 +89,22 @@ export class ModbusTcpConnection implements ControllerConnection {
     await this.connect();
     this.client.setID(unitId);
 
-    const reads: HoldingRegisterRead[] = [];
+    if (registers.length === 0) return [];
 
-    for (const address of registers) {
-      const result = await this.client.readHoldingRegisters(address, 1);
+    logger.info(
+      `Reading controller IP:${this.config.host} ${registers.length} ordered holding registers from offset 0`,
+    );
+    const result = await this.client.readHoldingRegisters(0, registers.length);
 
-      reads.push({
-        address,
-        values: result.data,
-      });
+    if (result.data.length < registers.length) {
+      throw new Error(
+        `Expected ${registers.length} holding register values, received ${result.data.length}`,
+      );
     }
 
-    return reads;
+    return registers.map((address, index) => ({
+      address,
+      values: [result.data[index]],
+    }));
   }
 }

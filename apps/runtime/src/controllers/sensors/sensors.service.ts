@@ -75,13 +75,11 @@ export class SensorsService {
     sensorId?: number,
   ): Promise<void> {
     if (
-      !Number.isInteger(sensor.modbusId) ||
-      sensor.modbusId < 1 ||
-      sensor.modbusId > 247
+      !Number.isInteger(sensor.nodeId) ||
+      sensor.nodeId < 1 ||
+      sensor.nodeId > 247
     ) {
-      throw new BadRequestException(
-        'Modbus ID must be an integer from 1 to 247',
-      );
+      throw new BadRequestException('Node ID must be an integer from 1 to 247');
     }
 
     if (!Array.isArray(sensor.registers) || sensor.registers.length === 0) {
@@ -90,25 +88,40 @@ export class SensorsService {
 
     const invalidRegister = sensor.registers.find(
       (register) =>
-        !Number.isInteger(register) || register < 0 || register > 65535,
+        !register.name?.trim() ||
+        !Number.isInteger(register.address) ||
+        register.address < firstNodeRegisterAddress(sensor.nodeId) ||
+        register.address > lastNodeRegisterAddress(sensor.nodeId) ||
+        !['multiply', 'divide'].includes(register.scaleType) ||
+        !Number.isFinite(register.scaleFactor) ||
+        register.scaleFactor <= 0 ||
+        !register.unit?.trim(),
     );
 
     if (invalidRegister !== undefined) {
       throw new BadRequestException(
-        'Sensor registers must be integers from 0 to 65535',
+        `Sensor registers must be named, scaled addresses from ${firstNodeRegisterAddress(sensor.nodeId)} to ${lastNodeRegisterAddress(sensor.nodeId)}`,
       );
     }
 
-    const conflict = await this.sensorsRepository.findConflictingModbusId(
+    const conflict = await this.sensorsRepository.findConflictingNodeId(
       sensor.controllerId,
-      sensor.modbusId,
+      sensor.nodeId,
       sensorId,
     );
 
     if (conflict) {
       throw new BadRequestException(
-        `Modbus ID ${sensor.modbusId} is already registered on controller ${sensor.controllerId}`,
+        `Node ID ${sensor.nodeId} is already registered on controller ${sensor.controllerId}`,
       );
     }
   }
+}
+
+function firstNodeRegisterAddress(nodeId: number): number {
+  return nodeId * 16 + 1;
+}
+
+function lastNodeRegisterAddress(nodeId: number): number {
+  return nodeId * 16 + 16;
 }

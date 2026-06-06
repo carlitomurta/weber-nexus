@@ -37,14 +37,14 @@ export class SensorsRepository {
       );
   }
 
-  async findConflictingModbusId(
+  async findConflictingNodeId(
     controllerId: number,
-    modbusId: number,
+    nodeId: number,
     sensorId?: number,
   ): Promise<Sensor | undefined> {
     const conditions = [
       eq(sensors.controllerId, controllerId),
-      eq(sensors.modbusId, modbusId),
+      eq(sensors.nodeId, nodeId),
       isNull(sensors.deletedAt),
     ];
 

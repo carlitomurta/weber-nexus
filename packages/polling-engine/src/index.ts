@@ -2,7 +2,6 @@ import {
   createControllerConnection,
   type ConnectionProtocol,
   type ControllerConnection,
-  type HoldingRegisterRead,
 } from "@weber-nexus/modbus";
 
 export type PollingController = {
@@ -16,14 +15,28 @@ export type PollingController = {
 export type PollingSensor = {
   id: number;
   controllerId: number;
-  modbusId: number;
+  nodeId: number;
   name: string;
-  registers: number[];
+  registers: PollingSensorRegister[];
+};
+
+export type PollingSensorRegister = {
+  name: string;
+  address: number;
+  scaleType: "multiply" | "divide";
+  scaleFactor: number;
+  unit: string;
+};
+
+export type SensorRegisterPollingResult = {
+  register: PollingSensorRegister;
+  rawValue: number;
+  scaledValue: number;
 };
 
 export type SensorPollingResult = {
   sensor: PollingSensor;
-  registers: HoldingRegisterRead[];
+  registers: SensorRegisterPollingResult[];
 };
 
 export type ControllerPollingResult = {
@@ -121,13 +134,50 @@ export class PollingEngine {
       job.connectionLogged = true;
     }
 
+    const registerPlan = createControllerRegisterPlan(job.sensors);
+    const holdingRegisters = await job.connection.readHoldingRegisters(
+      1,
+      registerPlan.map((entry) => entry.register.address),
+    );
+
+    const readsByKey = new Map<string, SensorRegisterPollingResult>();
+
+    registerPlan.forEach((entry, index) => {
+      const rawValue = holdingRegisters[index]?.values[0];
+
+      if (rawValue === undefined) {
+        throw new Error(
+          `Missing value for controller ${job.controller.id} register ${entry.register.address}`,
+        );
+      }
+
+      readsByKey.set(registerPlanKey(entry), {
+        register: entry.register,
+        rawValue,
+        scaledValue: applyScale(
+          rawValue,
+          entry.register.scaleType,
+          entry.register.scaleFactor,
+        ),
+      });
+    });
+
     const results: SensorPollingResult[] = [];
 
     for (const sensor of job.sensors) {
-      const registers = await job.connection.readHoldingRegisters(
-        sensor.modbusId,
-        sensor.registers,
-      );
+      const registers = [...sensor.registers]
+        .sort((a, b) => a.address - b.address)
+        .map((register) => {
+          const reading = readsByKey.get(registerPlanKey({ sensor, register }));
+
+          if (!reading) {
+            throw new Error(
+              `Missing mapped value for sensor ${sensor.id} register ${register.address}`,
+            );
+          }
+
+          return reading;
+        });
 
       results.push({
         sensor,
@@ -172,6 +222,59 @@ export class PollingEngine {
   }
 }
 
+type ControllerRegisterPlanEntry = {
+  sensor: PollingSensor;
+  register: PollingSensorRegister;
+};
+
+function createControllerRegisterPlan(
+  sensors: PollingSensor[],
+): ControllerRegisterPlanEntry[] {
+  const entries = sensors.flatMap((sensor) =>
+    sensor.registers.map((register) => ({
+      sensor,
+      register,
+    })),
+  );
+  const duplicateAddresses = findDuplicateAddresses(entries);
+
+  if (duplicateAddresses.length > 0) {
+    throw new Error(
+      `Duplicate holding register address configuration: ${duplicateAddresses.join(", ")}`,
+    );
+  }
+
+  return entries.sort((a, b) => {
+    if (a.register.address !== b.register.address) {
+      return a.register.address - b.register.address;
+    }
+
+    return a.sensor.id - b.sensor.id;
+  });
+}
+
+function findDuplicateAddresses(
+  entries: ControllerRegisterPlanEntry[],
+): number[] {
+  const seen = new Set<number>();
+  const duplicates = new Set<number>();
+
+  for (const entry of entries) {
+    if (seen.has(entry.register.address)) {
+      duplicates.add(entry.register.address);
+      continue;
+    }
+
+    seen.add(entry.register.address);
+  }
+
+  return [...duplicates].sort((a, b) => a - b);
+}
+
+function registerPlanKey(entry: ControllerRegisterPlanEntry): string {
+  return `${entry.sensor.id}:${entry.register.address}`;
+}
+
 function normalizePollingInterval(intervalMs: number): number {
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) return 300000;
   return intervalMs;
@@ -181,4 +284,13 @@ function sleep(delayMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
   });
+}
+
+function applyScale(
+  rawValue: number,
+  scaleType: PollingSensorRegister["scaleType"],
+  scaleFactor: number,
+): number {
+  if (scaleType === "divide") return rawValue / scaleFactor;
+  return rawValue * scaleFactor;
 }

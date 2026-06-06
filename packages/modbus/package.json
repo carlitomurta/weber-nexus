@@ -26,7 +26,8 @@
     "dev": "tsc"
   },
   "dependencies": {
-    "modbus-serial": "^8.0.25"
+    "modbus-serial": "^8.0.25",
+    "@weber-nexus/logger": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
