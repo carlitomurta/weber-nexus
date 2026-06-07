@@ -1,6 +1,8 @@
-import { Plus, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
+
+import { Plus, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+
 import type { SensorRegister } from "../../../types/sensors.type";
 import { Field, inputCls } from "./form-controls";
 import {
@@ -8,7 +10,34 @@ import {
   lastNodeRegisterAddress,
   nextRegisterAddress,
 } from "./sensor-registers";
-import type { SensorDraft } from "./types";
+import type { SensorDraft } from "./settings.type";
+
+interface SensorDialogProps {
+  title: string;
+  draft: SensorDraft;
+  setDraft: (draft: SensorDraft) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+interface SensorFieldsProps {
+  draft: SensorDraft;
+  setDraft: (draft: SensorDraft) => void;
+  onNodeIdChange: (nodeId: number) => void;
+}
+
+interface RegisterEditorProps {
+  draft: SensorDraft;
+  registerDraft: SensorRegister;
+  setRegisterDraft: (register: SensorRegister) => void;
+  onAddRegister: () => void;
+  onRemoveRegister: (address: number) => void;
+}
+
+interface RegisterRowProps {
+  register: SensorRegister;
+  onRemoveRegister: (address: number) => void;
+}
 
 export function SensorDialog({
   title,
@@ -16,13 +45,7 @@ export function SensorDialog({
   setDraft,
   onSave,
   onCancel,
-}: {
-  title: string;
-  draft: SensorDraft;
-  setDraft: (draft: SensorDraft) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
+}: SensorDialogProps) {
   const [registerDraft, setRegisterDraft] = useState<SensorRegister>({
     name: "",
     address: nextRegisterAddress(draft.nodeId, draft.registers),
@@ -182,15 +205,7 @@ export function SensorDialog({
   );
 }
 
-function SensorFields({
-  draft,
-  setDraft,
-  onNodeIdChange,
-}: {
-  draft: SensorDraft;
-  setDraft: (draft: SensorDraft) => void;
-  onNodeIdChange: (nodeId: number) => void;
-}) {
+function SensorFields({ draft, setDraft, onNodeIdChange }: SensorFieldsProps) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
@@ -223,7 +238,9 @@ function SensorFields({
             min={1}
             className={`${inputCls} font-mono`}
             value={draft.nodeId}
-            onChange={(event) => onNodeIdChange(Number(event.target.value) || 0)}
+            onChange={(event) =>
+              onNodeIdChange(Number(event.target.value) || 0)
+            }
           />
         </Field>
         <Field label="Localização">
@@ -254,13 +271,7 @@ function RegisterEditor({
   setRegisterDraft,
   onAddRegister,
   onRemoveRegister,
-}: {
-  draft: SensorDraft;
-  registerDraft: SensorRegister;
-  setRegisterDraft: (register: SensorRegister) => void;
-  onAddRegister: () => void;
-  onRemoveRegister: (address: number) => void;
-}) {
+}: RegisterEditorProps) {
   return (
     <div className="space-y-2 rounded border border-border bg-background/70 p-3">
       <div className="grid grid-cols-[1.3fr_0.75fr_0.95fr_0.85fr_0.75fr_auto] gap-2">
@@ -340,17 +351,13 @@ function RegisterEditor({
   );
 }
 
-function RegisterRow({
-  register,
-  onRemoveRegister,
-}: {
-  register: SensorRegister;
-  onRemoveRegister: (address: number) => void;
-}) {
+function RegisterRow({ register, onRemoveRegister }: RegisterRowProps) {
   return (
     <div className="grid grid-cols-[1.3fr_0.75fr_0.95fr_0.85fr_0.75fr_auto] items-center gap-2 px-2 py-1.5 text-xs">
       <span className="font-medium">{register.name}</span>
-      <span className="font-mono text-muted-foreground">{register.address}</span>
+      <span className="font-mono text-muted-foreground">
+        {register.address}
+      </span>
       <span className="text-muted-foreground">
         {register.scaleType === "divide" ? "Dividir" : "Multiplicar"}
       </span>

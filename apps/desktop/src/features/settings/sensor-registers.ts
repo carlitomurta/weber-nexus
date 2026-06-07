@@ -1,8 +1,8 @@
 import type {
-  SensorRegister,
   CreateSensorInput,
+  SensorRegister,
 } from "../../../types/sensors.type";
-import type { SensorDraft } from "./types";
+import type { SensorDraft } from "./settings.type";
 
 export function buildSensorPayload(
   draft: SensorDraft,

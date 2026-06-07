@@ -1,7 +1,12 @@
-import { PageTitle } from "@/components/shared/PageTitle";
-import { useControllers } from "@/hooks/useControllers";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
+
+import { PageTitle } from "@/components/shared/PageTitle";
+import { useControllers } from "@/hooks/useControllers";
+
+import type { Controller } from "../../../types/controllers.type";
+
+const emptyControllers: Controller[] = [];
 
 export const Route = createFileRoute("/_auth/dashboard")({
   head: () => ({
@@ -10,17 +15,27 @@ export const Route = createFileRoute("/_auth/dashboard")({
   component: Dashboard,
 });
 
+interface DashboardStateProps {
+  message: string;
+}
+
+interface DashboardQueryStateProps {
+  isOffline: boolean;
+  isStale: boolean;
+}
+
 function Dashboard() {
-  const { data: controllers = [], isLoading } = useControllers();
+  const controllersQuery = useControllers();
+  const controllers = controllersQuery.data ?? emptyControllers;
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
   return (
     <>
-      {/* Header */}
       <div className="flex items-end justify-between">
         <PageTitle
           page="Visão geral"
           title="Planta AMBEV"
-          subtitle="Telemetria em tempo real de 4 controladores · 16 sensores"
+          subtitle={`Telemetria local de ${controllers.length} controladores cadastrados`}
         />
         <div className="text-right font-mono text-[11px] text-muted-foreground">
           <div>Último pull · há 1 minuto</div>
@@ -40,63 +55,84 @@ function Dashboard() {
             {controllers?.length ?? 0} TOTAL
           </div>
         </div>
-        {isLoading ? (
-          <div className="p-5 text-center text-sm text-muted-foreground">
-            Carregando controladores...
-          </div>
-        ) : controllers?.length === 0 ? (
-          <div className="p-5 text-center text-sm text-muted-foreground">
-            Nenhum controlador encontrado. Adicione um novo controlador para
-            começar a monitorar seus sensores.
-          </div>
+        {controllersQuery.isLoading ? (
+          <DashboardState message="Carregando controladores..." />
+        ) : controllersQuery.isError ? (
+          <DashboardState message="Não foi possível carregar controladores." />
+        ) : controllers.length === 0 ? (
+          <DashboardState message="Nenhum controlador encontrado. Adicione um novo controlador para começar a monitorar seus sensores." />
         ) : (
-          <table className="w-full text-sm">
-            <thead className="text-[10px] font-mono tracking-[0.14em] text-muted-foreground uppercase bg-muted/30">
-              <tr>
-                <th className="text-left px-5 py-2.5 font-normal">
-                  Controlador
-                </th>
-                <th className="text-left px-5 py-2.5 font-normal">Modelo</th>
-                <th className="text-left px-5 py-2.5 font-normal">IP</th>
-                <th className="text-left px-5 py-2.5 font-normal">Local</th>
-                {/* <th className="text-left px-5 py-2.5 font-normal">Status</th> */}
-                <th className="px-5 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {controllers.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-t border-border hover:bg-muted/30 transition-colors group"
-                >
-                  <td className="px-5 py-3 font-medium">{c.name}</td>
-                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
-                    {c.model}
-                  </td>
-                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
-                    {c.ipAddress}
-                  </td>
-                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
-                    {c.site}
-                  </td>
-                  {/* <td className="px-5 py-3">
-                  <StatusPill status={c.status} />
-                </td> */}
-                  <td className="px-5 py-3 text-right">
-                    <Link
-                      to="/controllers/$id"
-                      params={{ id: String(c.id) }}
-                      className="inline-flex items-center gap-1 text-xs text-primary opacity-60 group-hover:opacity-100 transition"
-                    >
-                      Inspecionar <ArrowUpRight className="size-3" />
-                    </Link>
-                  </td>
+          <>
+            <DashboardQueryState
+              isOffline={isOffline}
+              isStale={controllersQuery.isStale}
+            />
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-2.5 text-left font-normal">
+                    Controlador
+                  </th>
+                  <th className="px-5 py-2.5 text-left font-normal">Modelo</th>
+                  <th className="px-5 py-2.5 text-left font-normal">IP</th>
+                  <th className="px-5 py-2.5 text-left font-normal">Local</th>
+                  <th className="px-5 py-2.5"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {controllers.map((controller) => (
+                  <tr
+                    key={controller.id}
+                    className="group border-t border-border transition-colors hover:bg-muted/30"
+                  >
+                    <td className="px-5 py-3 font-medium">{controller.name}</td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
+                      {controller.model}
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
+                      {controller.ipAddress}
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
+                      {controller.site}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <Link
+                        to="/controllers/$id"
+                        params={{ id: String(controller.id) }}
+                        className="inline-flex items-center gap-1 text-xs text-primary opacity-60 transition group-hover:opacity-100"
+                      >
+                        Inspecionar <ArrowUpRight className="size-3" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
     </>
+  );
+}
+
+function DashboardState({ message }: DashboardStateProps) {
+  return (
+    <div className="p-5 text-center text-sm text-muted-foreground">
+      {message}
+    </div>
+  );
+}
+
+function DashboardQueryState({ isOffline, isStale }: DashboardQueryStateProps) {
+  if (!isOffline && !isStale) {
+    return null;
+  }
+
+  return (
+    <div className="border-b border-border bg-muted/30 px-5 py-2 text-xs text-muted-foreground">
+      {isOffline
+        ? "Offline: exibindo dados locais disponíveis."
+        : "Dados possivelmente desatualizados."}
+    </div>
   );
 }

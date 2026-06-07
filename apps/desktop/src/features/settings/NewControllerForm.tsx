@@ -1,19 +1,22 @@
 import { Save, X } from "lucide-react";
+
 import type { Controller } from "../../../types/controllers.type";
 import { Field, inputCls } from "./form-controls";
-import type { ControllerDraft } from "./types";
+import type { ControllerDraft } from "./settings.type";
+
+interface NewControllerFormProps {
+  draft: ControllerDraft;
+  setDraft: (draft: ControllerDraft) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
 
 export function NewControllerForm({
   draft,
   setDraft,
   onSave,
   onCancel,
-}: {
-  draft: ControllerDraft;
-  setDraft: (draft: ControllerDraft) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
+}: NewControllerFormProps) {
   return (
     <div className="space-y-3 border-b border-border bg-muted/20 p-4">
       <Field label="Nome do controlador">
@@ -22,9 +25,7 @@ export function NewControllerForm({
           className={inputCls}
           placeholder="Ex.: Sala de Prensas Norte"
           value={draft.name}
-          onChange={(event) =>
-            setDraft({ ...draft, name: event.target.value })
-          }
+          onChange={(event) => setDraft({ ...draft, name: event.target.value })}
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">

@@ -1,8 +1,23 @@
 import { Pencil, Plus, Radio, Settings2, Trash2 } from "lucide-react";
+
 import type { Controller } from "../../../types/controllers.type";
 import type { Sensor } from "../../../types/sensors.type";
 import { normalizeSensorRegister } from "./sensor-registers";
-import type { DeleteConfirmation } from "./types";
+import type { DeleteConfirmation } from "./settings.type";
+
+interface ControllerDetailsProps {
+  selected: Controller | null;
+  sensors: Sensor[];
+  onAddSensor: () => void;
+  onDeleteSensor: (confirm: DeleteConfirmation) => void;
+  onEditSensor: (sensor: Sensor) => void;
+}
+
+interface SensorRowProps {
+  sensor: Sensor;
+  onDeleteSensor: (confirm: DeleteConfirmation) => void;
+  onEditSensor: (sensor: Sensor) => void;
+}
 
 export function ControllerDetails({
   selected,
@@ -10,13 +25,7 @@ export function ControllerDetails({
   onAddSensor,
   onDeleteSensor,
   onEditSensor,
-}: {
-  selected: Controller | null;
-  sensors: Sensor[];
-  onAddSensor: () => void;
-  onDeleteSensor: (confirm: DeleteConfirmation) => void;
-  onEditSensor: (sensor: Sensor) => void;
-}) {
+}: ControllerDetailsProps) {
   if (!selected) {
     return (
       <div className="col-span-8 space-y-4">
@@ -98,15 +107,7 @@ export function ControllerDetails({
   );
 }
 
-function SensorRow({
-  sensor,
-  onDeleteSensor,
-  onEditSensor,
-}: {
-  sensor: Sensor;
-  onDeleteSensor: (confirm: DeleteConfirmation) => void;
-  onEditSensor: (sensor: Sensor) => void;
-}) {
+function SensorRow({ sensor, onDeleteSensor, onEditSensor }: SensorRowProps) {
   return (
     <tr className="border-b border-border/60 last:border-0">
       <td className="px-4 py-2.5">

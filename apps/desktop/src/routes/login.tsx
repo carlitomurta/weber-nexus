@@ -1,8 +1,25 @@
-import { useLogin } from "@/hooks/useLogin";
-import { login } from "@/lib/auth";
+import { type ComponentType, type FormEvent, useState } from "react";
+
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { isAxiosError } from "axios";
 import { Lock, Mail, Radio } from "lucide-react";
+import { z } from "zod";
+
+import { useLogin } from "@/hooks/useLogin";
+import { login } from "@/lib/auth";
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+interface FieldProps {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  name: string;
+  type?: string;
+  defaultValue?: string;
+}
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -14,29 +31,38 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const loginMutation = useLogin();
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-    const formData = new FormData(e.currentTarget);
-    const email = String(formData.get("email") ?? "");
-    const password = String(formData.get("password") ?? "");
+    const formData = new FormData(event.currentTarget);
+    const credentials = loginSchema.safeParse({
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    });
+
+    if (!credentials.success) {
+      setValidationError("Informe email e senha válidos.");
+      return;
+    }
 
     try {
-      const data = await loginMutation.mutateAsync({ email, password });
+      setValidationError(null);
+      const data = await loginMutation.mutateAsync(credentials.data);
       login(data.user);
       navigate({ to: "/dashboard" });
     } catch {
-      // The mutation state drives the visible error message.
+      setValidationError(null);
     }
   };
 
-  const errorMessage = getLoginErrorMessage(loginMutation.error);
+  const errorMessage =
+    validationError ?? getLoginErrorMessage(loginMutation.error);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-0 border border-border rounded-lg overflow-hidden bg-card/70 backdrop-blur shadow-2xl">
-        {/* Left panel */}
         <div className="p-10 border-r border-border bg-background/40 hidden lg:flex flex-col justify-between">
           <div className="flex items-center gap-2.5">
             <div className="size-9 rounded bg-primary grid place-items-center text-primary-foreground">
@@ -75,7 +101,6 @@ function LoginPage() {
           </div>
         </div>
 
-        {/* Right panel */}
         <form onSubmit={onSubmit} className="p-10 space-y-5">
           <div className="space-y-1">
             <div className="text-[11px] font-mono tracking-[0.2em] text-primary uppercase">
@@ -140,13 +165,7 @@ function Field({
   name,
   type = "text",
   defaultValue,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  name: string;
-  type?: string;
-  defaultValue?: string;
-}) {
+}: FieldProps) {
   return (
     <label className="block space-y-1.5">
       <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">

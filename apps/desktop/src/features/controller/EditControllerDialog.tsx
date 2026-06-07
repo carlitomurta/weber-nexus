@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -8,6 +7,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/shared/ui/alert-dialog";
+import { Field, inputCls } from "@/features/settings/form-controls";
 import { useEffect, useState } from "react";
 import type {
   Controller,
@@ -19,10 +19,8 @@ type ControllerDraft = {
   model: string;
   site: string;
   ipAddress: string;
+  pollingIntervalMs: number;
 };
-
-const inputCls =
-  "w-full h-9 px-2.5 rounded bg-background border border-border text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary";
 
 export function EditControllerDialog({
   controller,
@@ -40,6 +38,7 @@ export function EditControllerDialog({
     model: "",
     site: "",
     ipAddress: "",
+    pollingIntervalMs: 0,
   });
 
   useEffect(() => {
@@ -49,6 +48,7 @@ export function EditControllerDialog({
         model: controller.model,
         site: controller.site,
         ipAddress: controller.ipAddress,
+        pollingIntervalMs: controller.pollingIntervalMs,
       });
     }
   }, [controller, open]);
@@ -103,41 +103,39 @@ export function EditControllerDialog({
               onChange={(e) => setDraft({ ...draft, site: e.target.value })}
             />
           </Field>
+          <Field label="Intervalo de polling (ms)">
+            <input
+              type="number"
+              min={1000}
+              step={1000}
+              className={`${inputCls} font-mono`}
+              value={draft.pollingIntervalMs}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  pollingIntervalMs: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </Field>
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
+          <button
+            className="inline-flex h-9 items-center justify-center rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             onClick={() =>
               onSave({
                 id: controller.id,
                 port: controller.port,
                 isMultihop: controller.isMultihop,
-                pollingIntervalMs: controller.pollingIntervalMs,
                 ...draft,
               })
             }
           >
             Salvar alterações
-          </AlertDialogAction>
+          </button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-muted-foreground mb-1">
-        {label}
-      </div>
-      {children}
-    </label>
   );
 }

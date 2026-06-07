@@ -1,16 +1,27 @@
-import { EditControllerDialog } from "@/components/controller/EditControllerDialog";
+import { createFileRoute } from "@tanstack/react-router";
+import { Plus, Shield } from "lucide-react";
+
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { EditControllerDialog } from "@/features/controller/EditControllerDialog";
 import { ControllerDetails } from "@/features/settings/ControllerDetails";
+import { ControllerDialog } from "@/features/settings/ControllerDialog";
 import { ControllerList } from "@/features/settings/ControllerList";
 import { SensorDialog } from "@/features/settings/SensorDialog";
 import { useSettingsPage } from "@/features/settings/useSettingsPage";
-import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Shield } from "lucide-react";
 
 export const Route = createFileRoute("/_auth/settings")({
   head: () => ({ meta: [{ title: "Administração" }] }),
   component: AdminPage,
 });
+
+interface SettingsStatePanelProps {
+  message: string;
+}
+
+interface SettingsQueryStateProps {
+  isOffline: boolean;
+  isStale: boolean;
+}
 
 function AdminPage() {
   const settings = useSettingsPage();
@@ -39,28 +50,36 @@ function AdminPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-12 gap-4">
-          <ControllerList
-            controllers={settings.controllers}
-            draft={settings.controllerDraft}
-            selectedId={settings.selectedId}
-            showNewController={settings.showNewController}
-            onCancelNewController={() => settings.setShowNewController(false)}
-            onDeleteController={settings.setConfirm}
-            onEditController={settings.setEditingControllerId}
-            onSaveNewController={settings.addController}
-            onSelectController={settings.setSelectedId}
-            setDraft={settings.setControllerDraft}
-          />
+        {settings.isLoading ? (
+          <SettingsStatePanel message="Carregando configurações..." />
+        ) : settings.isError ? (
+          <SettingsStatePanel message="Não foi possível carregar controladores e sensores." />
+        ) : (
+          <>
+            <SettingsQueryState
+              isOffline={settings.isOffline}
+              isStale={settings.isStale}
+            />
 
-          <ControllerDetails
-            selected={settings.selected}
-            sensors={settings.selectedSensors}
-            onAddSensor={settings.openNewSensorDialog}
-            onDeleteSensor={settings.setConfirm}
-            onEditSensor={settings.startEditSensor}
-          />
-        </div>
+            <div className="grid grid-cols-12 gap-4">
+              <ControllerList
+                controllers={settings.controllers}
+                selectedId={settings.selectedId}
+                onDeleteController={settings.setConfirm}
+                onEditController={settings.setEditingControllerId}
+                onSelectController={settings.setSelectedId}
+              />
+
+              <ControllerDetails
+                selected={settings.selected}
+                sensors={settings.selectedSensors}
+                onAddSensor={settings.openNewSensorDialog}
+                onDeleteSensor={settings.setConfirm}
+                onEditSensor={settings.startEditSensor}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {settings.isSensorDialogOpen ? (
@@ -73,6 +92,16 @@ function AdminPage() {
           setDraft={settings.setSensorDraft}
           onSave={settings.saveSensor}
           onCancel={settings.closeSensorDialog}
+        />
+      ) : null}
+
+      {settings.showNewController ? (
+        <ControllerDialog
+          title="Novo controlador"
+          draft={settings.controllerDraft}
+          setDraft={settings.setControllerDraft}
+          onSave={settings.addController}
+          onCancel={() => settings.setShowNewController(false)}
         />
       ) : null}
 
@@ -105,5 +134,27 @@ function AdminPage() {
         onConfirm={settings.handleConfirm}
       />
     </>
+  );
+}
+
+function SettingsStatePanel({ message }: SettingsStatePanelProps) {
+  return (
+    <div className="rounded-lg border border-border bg-card/60 p-10 text-center text-sm text-muted-foreground">
+      {message}
+    </div>
+  );
+}
+
+function SettingsQueryState({ isOffline, isStale }: SettingsQueryStateProps) {
+  if (!isOffline && !isStale) {
+    return null;
+  }
+
+  return (
+    <div className="rounded border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      {isOffline
+        ? "Offline: exibindo dados locais disponíveis."
+        : "Dados possivelmente desatualizados."}
+    </div>
   );
 }

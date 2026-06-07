@@ -1,4 +1,3 @@
-import { useElectronWindowTitle } from "@/hooks/useElectronWindowTitle";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -9,6 +8,14 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "sonner";
+
+import { useElectronWindowTitle } from "@/hooks/useElectronWindowTitle";
+import { sanitizeLog } from "@/utils/logSanitizer";
+
+interface ErrorComponentProps {
+  error: Error;
+  reset: () => void;
+}
 
 function NotFoundComponent() {
   return (
@@ -34,8 +41,8 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  console.error(sanitizeLog(error.message));
   const router = useRouter();
 
   return (

@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+
+import { toast } from "sonner";
+
 import {
   useControllers,
   useCreateController,
@@ -10,17 +14,21 @@ import {
   useSensors,
   useUpdateSensor,
 } from "@/hooks/useSensors";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import type { ControllerWrite } from "../../../types/controllers.type";
+
+import type {
+  Controller,
+  ControllerWrite,
+} from "../../../types/controllers.type";
 import type { Sensor, SensorWrite } from "../../../types/sensors.type";
-import { buildSensorPayload, normalizeSensorRegister } from "./sensor-registers";
 import {
-  emptyController,
-  emptySensor,
-  type DeleteConfirmation,
-  type SensorDraft,
-} from "./types";
+  buildSensorPayload,
+  normalizeSensorRegister,
+} from "./sensor-registers";
+import { emptyController, emptySensor } from "./settingsDefaults";
+import { type DeleteConfirmation, type SensorDraft } from "./settings.type";
+
+const emptyControllers: Controller[] = [];
+const emptySensors: Sensor[] = [];
 
 export function useSettingsPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -34,8 +42,10 @@ export function useSettingsPage() {
   );
   const [confirm, setConfirm] = useState<DeleteConfirmation | null>(null);
 
-  const { data: controllers = [] } = useControllers();
-  const { data: sensors = [] } = useSensors();
+  const controllersQuery = useControllers();
+  const sensorsQuery = useSensors();
+  const controllers = controllersQuery.data ?? emptyControllers;
+  const sensors = sensorsQuery.data ?? emptySensors;
 
   const { mutate: createController } = useCreateController({
     onSuccess: (id) => {
@@ -51,8 +61,8 @@ export function useSettingsPage() {
   const { mutate: updateSensor } = useUpdateSensor();
   const { mutate: deleteSensor } = useDeleteSensor();
 
-  const selected = controllers.find((controller) => controller.id === selectedId)
-    ?? null;
+  const selected =
+    controllers.find((controller) => controller.id === selectedId) ?? null;
   const editingController =
     controllers.find((controller) => controller.id === editingControllerId) ??
     null;
@@ -60,6 +70,10 @@ export function useSettingsPage() {
     ? sensors.filter((sensor) => sensor.controllerId === selected.id)
     : [];
   const isSensorDialogOpen = showNewSensor || editingSensorId !== null;
+  const isLoading = controllersQuery.isLoading || sensorsQuery.isLoading;
+  const isError = controllersQuery.isError || sensorsQuery.isError;
+  const isStale = controllersQuery.isStale || sensorsQuery.isStale;
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
   useEffect(() => {
     if (selectedId === null && controllers.length > 0) {
@@ -73,11 +87,13 @@ export function useSettingsPage() {
   }
 
   function addController() {
-    if (
-      !controllerDraft.name.trim() ||
-      !controllerDraft.ipAddress.trim()
-    ) {
+    if (!controllerDraft.name.trim() || !controllerDraft.ipAddress.trim()) {
       toast.error("Informe nome e endereço IP do controlador.");
+      return;
+    }
+
+    if (!isValidPollingInterval(controllerDraft.pollingIntervalMs)) {
+      toast.error("Informe um intervalo de polling válido.");
       return;
     }
 
@@ -205,6 +221,11 @@ export function useSettingsPage() {
       return;
     }
 
+    if (!isValidPollingInterval(patch.pollingIntervalMs)) {
+      toast.error("Informe um intervalo de polling válido.");
+      return;
+    }
+
     updateController(
       {
         ...patch,
@@ -237,6 +258,10 @@ export function useSettingsPage() {
     editingControllerId,
     editingSensorId,
     isSensorDialogOpen,
+    isError,
+    isLoading,
+    isOffline,
+    isStale,
     selected,
     selectedId,
     selectedSensors,
@@ -257,4 +282,8 @@ export function useSettingsPage() {
     startEditSensor,
     saveSensor: editingSensorId !== null ? saveEditSensor : addSensor,
   };
+}
+
+function isValidPollingInterval(pollingIntervalMs: number): boolean {
+  return Number.isInteger(pollingIntervalMs) && pollingIntervalMs > 0;
 }

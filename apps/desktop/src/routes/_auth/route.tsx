@@ -1,6 +1,7 @@
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+
 import { Shell } from "@/components/Shell";
 import { isAuthed } from "@/lib/auth";
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_auth")({
   beforeLoad: () => {

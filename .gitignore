@@ -31,3 +31,4 @@ influxdb-data/
 # AI Tools
 .agents
 .codex
+.playwright-mcp

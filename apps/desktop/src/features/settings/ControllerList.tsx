@@ -1,31 +1,23 @@
 import { Cpu, Pencil, Trash2 } from "lucide-react";
+
 import type { Controller } from "../../../types/controllers.type";
-import { NewControllerForm } from "./NewControllerForm";
-import type { ControllerDraft, DeleteConfirmation } from "./types";
+import type { DeleteConfirmation } from "./settings.type";
+
+interface ControllerListProps {
+  controllers: Controller[];
+  selectedId: number | null;
+  onDeleteController: (confirm: DeleteConfirmation) => void;
+  onEditController: (controllerId: number) => void;
+  onSelectController: (controllerId: number) => void;
+}
 
 export function ControllerList({
   controllers,
-  draft,
   selectedId,
-  showNewController,
-  onCancelNewController,
   onDeleteController,
   onEditController,
-  onSaveNewController,
   onSelectController,
-  setDraft,
-}: {
-  controllers: Controller[];
-  draft: ControllerDraft;
-  selectedId: number | null;
-  showNewController: boolean;
-  onCancelNewController: () => void;
-  onDeleteController: (confirm: DeleteConfirmation) => void;
-  onEditController: (controllerId: number) => void;
-  onSaveNewController: () => void;
-  onSelectController: (controllerId: number) => void;
-  setDraft: (draft: ControllerDraft) => void;
-}) {
+}: ControllerListProps) {
   return (
     <div className="col-span-4 overflow-hidden rounded-lg border border-border bg-card/60">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -34,15 +26,6 @@ export function ControllerList({
         </div>
         <Cpu className="size-3.5 text-muted-foreground" />
       </div>
-
-      {showNewController ? (
-        <NewControllerForm
-          draft={draft}
-          setDraft={setDraft}
-          onSave={onSaveNewController}
-          onCancel={onCancelNewController}
-        />
-      ) : null}
 
       <ul className="divide-y divide-border">
         {controllers.map((controller) => {
