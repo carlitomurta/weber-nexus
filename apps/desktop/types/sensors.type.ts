@@ -3,9 +3,10 @@ import { z } from "zod";
 export const sensorRegisterSchema = z.object({
   name: z.string(),
   address: z.number(),
-  scaleType: z.enum(["multiply", "divide"]),
-  scaleFactor: z.number(),
+  scaleType: z.enum(["multiply", "divide"]).optional(),
+  scaleFactor: z.number().optional(),
   unit: z.string(),
+  isHealthCheck: z.boolean().optional(),
 });
 
 const sensorSchema = z.object({

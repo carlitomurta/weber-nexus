@@ -9,6 +9,7 @@ export type PollingController = {
   name: string;
   ipAddress: string;
   pollingIntervalMs: number;
+  isMultihop?: boolean | null;
   protocol?: ConnectionProtocol;
 };
 
@@ -23,15 +24,17 @@ export type PollingSensor = {
 export type PollingSensorRegister = {
   name: string;
   address: number;
-  scaleType: "multiply" | "divide";
-  scaleFactor: number;
+  scaleType?: "multiply" | "divide";
+  scaleFactor?: number;
   unit: string;
+  isHealthCheck?: boolean;
 };
 
 export type SensorRegisterPollingResult = {
   register: PollingSensorRegister;
   rawValue: number;
   scaledValue: number;
+  displayValue: string | number;
 };
 
 export type SensorPollingResult = {
@@ -151,13 +154,17 @@ export class PollingEngine {
         );
       }
 
+      const scaledValue = applyScale(rawValue, entry.register);
+
       readsByKey.set(registerPlanKey(entry), {
         register: entry.register,
         rawValue,
-        scaledValue: applyScale(
+        scaledValue,
+        displayValue: formatRegisterValue(
+          job.controller,
+          entry.register,
           rawValue,
-          entry.register.scaleType,
-          entry.register.scaleFactor,
+          scaledValue,
         ),
       });
     });
@@ -288,9 +295,28 @@ function sleep(delayMs: number): Promise<void> {
 
 function applyScale(
   rawValue: number,
-  scaleType: PollingSensorRegister["scaleType"],
-  scaleFactor: number,
+  register: PollingSensorRegister,
 ): number {
-  if (scaleType === "divide") return rawValue / scaleFactor;
-  return rawValue * scaleFactor;
+  if (register.isHealthCheck) return rawValue;
+  if (register.scaleType === undefined || register.scaleFactor === undefined) {
+    return rawValue;
+  }
+
+  if (register.scaleType === "divide") return rawValue / register.scaleFactor;
+  return rawValue * register.scaleFactor;
+}
+
+function formatRegisterValue(
+  controller: PollingController,
+  register: PollingSensorRegister,
+  rawValue: number,
+  scaledValue: number,
+): string | number {
+  if (!register.isHealthCheck || controller.isMultihop) {
+    return scaledValue;
+  }
+
+  if (rawValue === 128) return "ONLINE";
+  if (rawValue === 13569) return "OFFLINE";
+  return rawValue;
 }

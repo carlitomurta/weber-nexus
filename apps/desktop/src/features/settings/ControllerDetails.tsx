@@ -132,8 +132,9 @@ function SensorRow({ sensor, onDeleteSensor, onEditSensor }: SensorRowProps) {
                 className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
               >
                 {normalizedRegister.name}@{normalizedRegister.address}{" "}
-                {normalizedRegister.scaleType === "divide" ? "/" : "x"}
-                {normalizedRegister.scaleFactor} {normalizedRegister.unit}
+                {normalizedRegister.isHealthCheck
+                  ? "health"
+                  : formatRegisterScale(normalizedRegister)}
               </span>
             );
           })}
@@ -165,4 +166,15 @@ function SensorRow({ sensor, onDeleteSensor, onEditSensor }: SensorRowProps) {
       </td>
     </tr>
   );
+}
+
+function formatRegisterScale(register: Sensor["registers"][number]): string {
+  const scale =
+    register.scaleType && register.scaleFactor
+      ? `${register.scaleType === "divide" ? "/" : "x"}${
+          register.scaleFactor
+        } `
+      : "";
+
+  return `${scale}${register.unit}`;
 }

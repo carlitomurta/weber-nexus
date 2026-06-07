@@ -28,10 +28,8 @@ export function buildSensorPayload(
       !Number.isInteger(register.address) ||
       register.address < firstAddress ||
       register.address > lastAddress ||
-      !isScaleType(register.scaleType) ||
-      !Number.isFinite(register.scaleFactor) ||
-      register.scaleFactor <= 0 ||
-      !register.unit.trim(),
+      isInvalidRegisterScale(register) ||
+      (!register.isHealthCheck && !register.unit.trim()),
   );
 
   if (invalidRegister) {
@@ -50,9 +48,10 @@ export function buildSensorPayload(
     registers: draft.registers.map((register) => ({
       name: register.name.trim(),
       address: register.address,
-      scaleType: register.scaleType,
-      scaleFactor: register.scaleFactor,
+      scaleType: register.isHealthCheck ? undefined : register.scaleType,
+      scaleFactor: register.isHealthCheck ? undefined : register.scaleFactor,
       unit: register.unit.trim(),
+      isHealthCheck: register.isHealthCheck,
     })),
   };
 }
@@ -87,16 +86,42 @@ export function normalizeSensorRegister(
   register: SensorRegister,
 ): SensorRegister {
   const legacyRegister = register as SensorRegister & { scale?: number };
+  const scaleFactor = register.scaleFactor ?? legacyRegister.scale;
 
   return {
     name: register.name,
     address: register.address,
-    scaleType: register.scaleType ?? "multiply",
-    scaleFactor: register.scaleFactor ?? legacyRegister.scale ?? 1,
-    unit: register.unit,
+    scaleType: register.isHealthCheck
+      ? undefined
+      : (register.scaleType ?? defaultScaleType(scaleFactor)),
+    scaleFactor: register.isHealthCheck ? undefined : scaleFactor,
+    unit: register.unit ?? "",
+    isHealthCheck: register.isHealthCheck ?? false,
   };
 }
 
-function isScaleType(value: string): value is SensorRegister["scaleType"] {
+function isInvalidRegisterScale(register: SensorRegister): boolean {
+  if (register.isHealthCheck) return false;
+  if (register.scaleType === undefined && register.scaleFactor === undefined) {
+    return false;
+  }
+
+  return (
+    !isScaleType(register.scaleType) ||
+    register.scaleFactor === undefined ||
+    !Number.isFinite(register.scaleFactor) ||
+    register.scaleFactor <= 0
+  );
+}
+
+function defaultScaleType(
+  scaleFactor: number | undefined,
+): SensorRegister["scaleType"] {
+  return scaleFactor !== undefined ? "multiply" : undefined;
+}
+
+function isScaleType(
+  value: string | undefined,
+): value is NonNullable<SensorRegister["scaleType"]> {
   return value === "multiply" || value === "divide";
 }

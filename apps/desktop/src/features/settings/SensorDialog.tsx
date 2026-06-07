@@ -49,9 +49,8 @@ export function SensorDialog({
   const [registerDraft, setRegisterDraft] = useState<SensorRegister>({
     name: "",
     address: nextRegisterAddress(draft.nodeId, draft.registers),
-    scaleType: "multiply",
-    scaleFactor: 1,
     unit: "",
+    isHealthCheck: false,
   });
 
   function updateNodeId(nodeId: number) {
@@ -77,7 +76,7 @@ export function SensorDialog({
       return;
     }
 
-    if (!registerDraft.unit.trim()) {
+    if (!registerDraft.isHealthCheck && !registerDraft.unit.trim()) {
       toast.error("Informe a unidade do registro.");
       return;
     }
@@ -97,9 +96,14 @@ export function SensorDialog({
     }
 
     if (
-      !["multiply", "divide"].includes(registerDraft.scaleType) ||
-      !Number.isFinite(registerDraft.scaleFactor) ||
-      registerDraft.scaleFactor <= 0
+      !registerDraft.isHealthCheck &&
+      (registerDraft.scaleType !== undefined ||
+        registerDraft.scaleFactor !== undefined) &&
+      (registerDraft.scaleType === undefined ||
+        !["multiply", "divide"].includes(registerDraft.scaleType) ||
+        registerDraft.scaleFactor === undefined ||
+        !Number.isFinite(registerDraft.scaleFactor) ||
+        registerDraft.scaleFactor <= 0)
     ) {
       toast.error("Informe um fator de escala válido.");
       return;
@@ -119,9 +123,14 @@ export function SensorDialog({
       {
         name: registerDraft.name.trim(),
         address: registerDraft.address,
-        scaleType: registerDraft.scaleType,
-        scaleFactor: registerDraft.scaleFactor,
-        unit: registerDraft.unit.trim(),
+        scaleType: registerDraft.isHealthCheck
+          ? undefined
+          : registerDraft.scaleType,
+        scaleFactor: registerDraft.isHealthCheck
+          ? undefined
+          : registerDraft.scaleFactor,
+        unit: registerDraft.isHealthCheck ? "" : registerDraft.unit.trim(),
+        isHealthCheck: registerDraft.isHealthCheck,
       },
     ].sort((a, b) => a.address - b.address);
 
@@ -132,9 +141,10 @@ export function SensorDialog({
     setRegisterDraft({
       name: "",
       address: nextRegisterAddress(draft.nodeId, registers),
-      scaleType: registerDraft.scaleType,
-      scaleFactor: 1,
+      scaleType: undefined,
+      scaleFactor: undefined,
       unit: registerDraft.unit,
+      isHealthCheck: false,
     });
   }
 
@@ -272,61 +282,64 @@ function RegisterEditor({
   onAddRegister,
   onRemoveRegister,
 }: RegisterEditorProps) {
+  const scaleEnabled =
+    !registerDraft.isHealthCheck &&
+    registerDraft.scaleType !== undefined &&
+    registerDraft.scaleFactor !== undefined;
+
   return (
     <div className="space-y-2 rounded border border-border bg-background/70 p-3">
-      <div className="grid grid-cols-[1.3fr_0.75fr_0.95fr_0.85fr_0.75fr_auto] gap-2">
-        <input
-          className={inputCls}
-          placeholder="Velocidade"
-          value={registerDraft.name}
-          onChange={(event) =>
-            setRegisterDraft({ ...registerDraft, name: event.target.value })
-          }
-        />
-        <input
-          type="number"
-          className={`${inputCls} font-mono`}
-          value={registerDraft.address}
-          onChange={(event) =>
-            setRegisterDraft({
-              ...registerDraft,
-              address: Number(event.target.value) || 0,
-            })
-          }
-        />
-        <select
-          className={inputCls}
-          value={registerDraft.scaleType}
-          onChange={(event) =>
-            setRegisterDraft({
-              ...registerDraft,
-              scaleType: event.target.value as SensorRegister["scaleType"],
-            })
-          }
-        >
-          <option value="multiply">Multiplicar</option>
-          <option value="divide">Dividir</option>
-        </select>
-        <input
-          type="number"
-          step="0.001"
-          className={`${inputCls} font-mono`}
-          value={registerDraft.scaleFactor}
-          onChange={(event) =>
-            setRegisterDraft({
-              ...registerDraft,
-              scaleFactor: Number(event.target.value) || 0,
-            })
-          }
-        />
-        <input
-          className={`${inputCls} font-mono`}
-          placeholder="mm/s"
-          value={registerDraft.unit}
-          onChange={(event) =>
-            setRegisterDraft({ ...registerDraft, unit: event.target.value })
-          }
-        />
+      <div className="grid grid-cols-[1.3fr_0.75fr_1fr_0.75fr_auto] items-end gap-2">
+        <Field label="Nome do registro">
+          <input
+            className={inputCls}
+            placeholder="Velocidade"
+            value={registerDraft.name}
+            onChange={(event) =>
+              setRegisterDraft({ ...registerDraft, name: event.target.value })
+            }
+          />
+        </Field>
+        <Field label="Endereço">
+          <input
+            type="number"
+            className={`${inputCls} font-mono`}
+            value={registerDraft.address}
+            onChange={(event) =>
+              setRegisterDraft({
+                ...registerDraft,
+                address: Number(event.target.value) || 0,
+              })
+            }
+          />
+        </Field>
+        <Field label="Unidade">
+          <input
+            className={`${inputCls} font-mono disabled:cursor-not-allowed disabled:opacity-50`}
+            disabled={registerDraft.isHealthCheck}
+            placeholder="mm/s"
+            value={registerDraft.unit}
+            onChange={(event) =>
+              setRegisterDraft({ ...registerDraft, unit: event.target.value })
+            }
+          />
+        </Field>
+        <label className="flex h-9 items-center gap-2 rounded border border-border bg-background px-2.5 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={registerDraft.isHealthCheck ?? false}
+            onChange={(event) =>
+              setRegisterDraft({
+                ...registerDraft,
+                isHealthCheck: event.target.checked,
+                scaleType: undefined,
+                scaleFactor: undefined,
+                unit: event.target.checked ? "" : registerDraft.unit,
+              })
+            }
+          />
+          Health check
+        </label>
         <button
           onClick={onAddRegister}
           className="inline-flex h-9 items-center justify-center rounded bg-primary px-2.5 text-primary-foreground hover:bg-primary/90"
@@ -335,6 +348,59 @@ function RegisterEditor({
           <Plus className="size-3.5" />
         </button>
       </div>
+      <details className="rounded border border-border bg-muted/20 px-3 py-2">
+        <summary className="cursor-pointer text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
+          Escala
+        </summary>
+        <div className="mt-3 grid grid-cols-[0.75fr_1fr_1fr] items-end gap-2">
+          <label className="flex h-9 items-center gap-2 rounded border border-border bg-background px-2.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              disabled={registerDraft.isHealthCheck}
+              checked={scaleEnabled}
+              onChange={(event) =>
+                setRegisterDraft({
+                  ...registerDraft,
+                  scaleType: event.target.checked ? "multiply" : undefined,
+                  scaleFactor: event.target.checked ? 1 : undefined,
+                })
+              }
+            />
+            Aplicar escala
+          </label>
+          <Field label="Tipo de escala">
+            <select
+              className={`${inputCls} disabled:cursor-not-allowed disabled:opacity-50`}
+              disabled={!scaleEnabled || registerDraft.isHealthCheck}
+              value={registerDraft.scaleType ?? "multiply"}
+              onChange={(event) =>
+                setRegisterDraft({
+                  ...registerDraft,
+                  scaleType: event.target.value as SensorRegister["scaleType"],
+                })
+              }
+            >
+              <option value="multiply">Multiplicar</option>
+              <option value="divide">Dividir</option>
+            </select>
+          </Field>
+          <Field label="Multiplicador">
+            <input
+              type="number"
+              step="0.001"
+              disabled={!scaleEnabled || registerDraft.isHealthCheck}
+              className={`${inputCls} font-mono disabled:cursor-not-allowed disabled:opacity-50`}
+              value={registerDraft.scaleFactor ?? 1}
+              onChange={(event) =>
+                setRegisterDraft({
+                  ...registerDraft,
+                  scaleFactor: Number(event.target.value) || 0,
+                })
+              }
+            />
+          </Field>
+        </div>
+      </details>
 
       {draft.registers.length > 0 ? (
         <div className="divide-y divide-border rounded border border-border">
@@ -352,19 +418,25 @@ function RegisterEditor({
 }
 
 function RegisterRow({ register, onRemoveRegister }: RegisterRowProps) {
+  const scaleLabel =
+    register.scaleType && register.scaleFactor
+      ? `${register.scaleType === "divide" ? "Dividir" : "Multiplicar"} ${
+          register.scaleFactor
+        }`
+      : "Sem escala";
+
   return (
-    <div className="grid grid-cols-[1.3fr_0.75fr_0.95fr_0.85fr_0.75fr_auto] items-center gap-2 px-2 py-1.5 text-xs">
+    <div className="grid grid-cols-[1.3fr_0.75fr_1fr_0.75fr_auto] items-center gap-2 px-2 py-1.5 text-xs">
       <span className="font-medium">{register.name}</span>
       <span className="font-mono text-muted-foreground">
         {register.address}
       </span>
       <span className="text-muted-foreground">
-        {register.scaleType === "divide" ? "Dividir" : "Multiplicar"}
+        {register.isHealthCheck ? "Health check" : scaleLabel}
       </span>
       <span className="font-mono text-muted-foreground">
-        {register.scaleFactor}
+        {register.isHealthCheck ? "-" : register.unit}
       </span>
-      <span className="font-mono text-muted-foreground">{register.unit}</span>
       <button
         onClick={() => onRemoveRegister(register.address)}
         className="inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

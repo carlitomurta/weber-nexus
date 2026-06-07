@@ -186,9 +186,15 @@ function Reading({ register }: ReadingProps) {
       </div>
       <div className="mt-0.5 text-2xl font-semibold tabular-nums text-primary">
         {register.address}
-        <span className="ml-1 text-xs font-normal text-muted-foreground">
-          {register.unit}
-        </span>
+        {register.isHealthCheck ? (
+          <span className="ml-1 text-xs font-normal text-muted-foreground">
+            health
+          </span>
+        ) : (
+          <span className="ml-1 text-xs font-normal text-muted-foreground">
+            {register.unit}
+          </span>
+        )}
       </div>
     </div>
   );

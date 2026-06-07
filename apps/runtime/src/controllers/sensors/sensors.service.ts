@@ -92,15 +92,13 @@ export class SensorsService {
         !Number.isInteger(register.address) ||
         register.address < firstNodeRegisterAddress(sensor.nodeId) ||
         register.address > lastNodeRegisterAddress(sensor.nodeId) ||
-        !['multiply', 'divide'].includes(register.scaleType) ||
-        !Number.isFinite(register.scaleFactor) ||
-        register.scaleFactor <= 0 ||
-        !register.unit?.trim(),
+        this.isInvalidRegisterScale(register) ||
+        (!register.isHealthCheck && !register.unit?.trim()),
     );
 
     if (invalidRegister !== undefined) {
       throw new BadRequestException(
-        `Sensor registers must be named, scaled addresses from ${firstNodeRegisterAddress(sensor.nodeId)} to ${lastNodeRegisterAddress(sensor.nodeId)}`,
+        `Sensor registers must be named addresses from ${firstNodeRegisterAddress(sensor.nodeId)} to ${lastNodeRegisterAddress(sensor.nodeId)}`,
       );
     }
 
@@ -115,6 +113,23 @@ export class SensorsService {
         `Node ID ${sensor.nodeId} is already registered on controller ${sensor.controllerId}`,
       );
     }
+  }
+
+  private isInvalidRegisterScale(
+    register: NewSensor['registers'][number],
+  ): boolean {
+    if (register.isHealthCheck) return false;
+    if (register.scaleType === undefined && register.scaleFactor === undefined) {
+      return false;
+    }
+
+    return (
+      register.scaleType === undefined ||
+      !['multiply', 'divide'].includes(register.scaleType) ||
+      register.scaleFactor === undefined ||
+      !Number.isFinite(register.scaleFactor) ||
+      register.scaleFactor <= 0
+    );
   }
 }
 

@@ -6,9 +6,10 @@ import { controllers } from "./controllers.js";
 export type SensorRegister = {
   name: string;
   address: number;
-  scaleType: "multiply" | "divide";
-  scaleFactor: number;
+  scaleType?: "multiply" | "divide";
+  scaleFactor?: number;
   unit: string;
+  isHealthCheck?: boolean;
 };
 
 export const sensors = table("sensors", {

@@ -109,6 +109,7 @@ export class PollingRuntimeService
         name: controller.name,
         ipAddress: controller.ipAddress,
         pollingIntervalMs: controller.pollingIntervalMs,
+        isMultihop: controller.isMultihop,
       },
       sensors.map((sensor) => ({
         id: sensor.id,
@@ -123,9 +124,12 @@ export class PollingRuntimeService
           return {
             name: register.name,
             address: register.address,
-            scaleType: register.scaleType ?? 'multiply',
-            scaleFactor: register.scaleFactor ?? legacyRegister.scale ?? 1,
-            unit: register.unit,
+            scaleType: register.isHealthCheck ? undefined : register.scaleType,
+            scaleFactor: register.isHealthCheck
+              ? undefined
+              : (register.scaleFactor ?? legacyRegister.scale),
+            unit: register.unit ?? '',
+            isHealthCheck: register.isHealthCheck,
           };
         }),
       })),
@@ -148,7 +152,12 @@ export class PollingRuntimeService
       `[PULLED]: ${result.polledAt.toLocaleTimeString()}`,
       readings.map((r) =>
         r.registers
-          .map((a) => `${a.register.name}: ${a.scaledValue}${a.register.unit}`)
+          .map(
+            (a) =>
+              `${a.register.name}: ${a.displayValue}${
+                a.register.isHealthCheck ? '' : a.register.unit
+              }`,
+          )
           .join(', '),
       ),
     );
