@@ -138,3 +138,7 @@ yarn prettier
 ## License
 
 Proprietary
+
+## Compatibility
+
+The system should work properly for Windows >10 and Linux (Ubuntu)

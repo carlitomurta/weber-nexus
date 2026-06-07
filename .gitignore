@@ -21,6 +21,10 @@ dist-*
 #!.yarn/cache
 .pnp.*
 
+# Resources - not versionized to prevent large files
+# For influx, should be {version}/(windows or linux)/binary
+resources/influxdb/*
+
 # AI Tools
 .agents
 .codex

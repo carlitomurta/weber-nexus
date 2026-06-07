@@ -20,17 +20,32 @@
       },
     ],
     artifactName: "${productName}-win64-${version}.${ext}",
-  },
-  nsis: {
-    oneClick: false,
-    perMachine: false,
-    allowToChangeInstallationDirectory: true,
-    deleteAppDataOnUninstall: false,
+    extraResources: [
+      {
+        from: "../../resources/influxdb/3.9.3/windows",
+        to: "influxdb",
+        filter: ["**/*"],
+      },
+    ],
   },
   linux: {
     target: ["AppImage", "deb"],
     category: "Utility",
     artifactName: "${productName}-linux-${version}.${ext}",
     maintainer: "Carlito Murta <carlitomurtaramalho@gmail.com>",
+    extraResources: [
+      {
+        from: "../../resources/influxdb/3.9.3/linux",
+        to: "influxdb",
+        filter: ["**/*"],
+      },
+    ],
+  },
+  nsis: {
+    oneClick: false,
+    perMachine: false,
+    allowToChangeInstallationDirectory: true,
+    deleteAppDataOnUninstall: false,
+    include: "installer/nsis/influxdb-data-dir.nsh",
   },
 }

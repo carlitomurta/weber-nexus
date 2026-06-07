@@ -42,6 +42,12 @@ async function ensureRuntimeProcess() {
   const child = spawn(command, ["workspace", "@weber-nexus/runtime", "dev"], {
     cwd: workspaceRoot,
     detached: true,
+    env: {
+      ...process.env,
+      NEXUS_RESOURCES_PATH: app.isPackaged
+        ? process.resourcesPath
+        : path.join(workspaceRoot, "resources"),
+    },
     stdio,
     windowsHide: true,
   });
