@@ -14,6 +14,7 @@ import {
   type Controller,
   type Sensor,
 } from '@weber-nexus/repository';
+import { InfluxdbTelemetryService } from '../influxdb/influxdb-telemetry.service';
 
 @Injectable()
 export class PollingRuntimeService
@@ -32,7 +33,7 @@ export class PollingRuntimeService
         `Connected to controller ${controller.id} (${controller.name}) at ${controller.ipAddress}:502 via Modbus TCP`,
       );
     },
-    onData: (result) => this.logPollingResult(result),
+    onData: (result) => this.handlePollingResult(result),
     onError: (error, controller) => {
       this.logger.error(
         `Polling failed for controller ID ${controller.id} (${controller.name}) IP ${controller.ipAddress}`,
@@ -44,6 +45,7 @@ export class PollingRuntimeService
   constructor(
     private readonly controllersRepository: ControllersRepository,
     private readonly sensorsRepository: SensorsRepository,
+    private readonly influxdbTelemetryService: InfluxdbTelemetryService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -138,6 +140,13 @@ export class PollingRuntimeService
     this.logger.info(
       `Started polling controller ${controller.id} (${controller.name}) every ${controller.pollingIntervalMs}ms`,
     );
+  }
+
+  private async handlePollingResult(
+    result: ControllerPollingResult,
+  ): Promise<void> {
+    this.logPollingResult(result);
+    await this.influxdbTelemetryService.writePollingResult(result);
   }
 
   private logPollingResult(result: ControllerPollingResult): void {

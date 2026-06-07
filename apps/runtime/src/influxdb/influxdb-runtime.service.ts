@@ -280,7 +280,11 @@ export class InfluxdbRuntimeService
 
     try {
       const config = await readFile(configPath, 'utf8');
-      const configuredDataDir = this.readIniValue(config, 'influxdb', 'dataDir');
+      const configuredDataDir = this.readIniValue(
+        config,
+        'influxdb',
+        'dataDir',
+      );
 
       return configuredDataDir && configuredDataDir.trim().length > 0
         ? configuredDataDir

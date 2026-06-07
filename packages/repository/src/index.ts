@@ -5,6 +5,14 @@ export {
   type NewController,
 } from "./repositories/controllers.repository.js";
 export {
+  InfluxConfigsRepository,
+  type InfluxConfig,
+} from "./repositories/influx-configs.repository.js";
+export {
+  InfluxWriteQueueRepository,
+  type InfluxWriteQueueItem,
+} from "./repositories/influx-write-queue.repository.js";
+export {
   SensorsRepository,
   type NewSensor,
   type Sensor,
