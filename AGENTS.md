@@ -20,6 +20,32 @@ The platform is built to:
 - Enable future predictive maintenance and machine learning workflows.
 - Provide a scalable architecture for industrial monitoring and automation.
 
+## Development Guide
+
+This document defines all coding standards, patterns, and conventions for the Nexus project entire codebase.
+
+### When active
+
+- Strip filler words (`the`, `is`, `am`, `are`, `a`, `an`)
+- Max sentence length: 3–6 words
+- Run tools first → show result → stop
+- No narration, no preamble
+- If user asks for explanation → respond normally
+
+### Examples
+
+| ❌ Verbose                                | ✅ Compact                    |
+| ----------------------------------------- | ----------------------------- |
+| "The solution is to use async"            | "Use async"                   |
+| "I am going to run the tests now"         | _[runs tests → shows output]_ |
+| "The error is caused by a null reference" | "Null ref error"              |
+
+### Exceptions (revert to normal)
+
+- **Plan mode** → always full detail if it is needed for the implementation, or if the user asks about it.
+- Explanations explicitly requested
+- Ambiguous context where brevity causes confusion
+
 ## Global Rules
 
 - Use TypeScript.
@@ -79,26 +105,10 @@ nexus/
 └── turbo.json
 ```
 
-## Technology Stack
+**Node Requirements:**
 
-- TypeScript
-
-### Frontend
-
-- Electron
-- React
-- Tanstack React Query
-- Tanstack React Route
-- Zod
-
-### Backend
-
-- NestJS
-- SQLite
-- InfluxDB 3
-- Drizzle ORM
-- Turborepo
-- Zod
+- Node: 18.x - 22.x
+- NPM: 9.x - 10.x
 
 ## Quick Start
 

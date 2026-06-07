@@ -1,6 +1,8 @@
 !include LogicLib.nsh
 !include nsDialogs.nsh
 
+!ifndef BUILD_UNINSTALLER
+
 Var NexusInfluxDataDir
 Var NexusInfluxDataDirText
 
@@ -20,7 +22,7 @@ Function NexusInfluxDataDirPage
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0u 0u 100% 22u "Choose where Nexus will store local InfluxDB time-series data."
+  ${NSD_CreateLabel} 0u 0u 100% 22u "Escolha onde o Nexus vai armazenar os dados locais."
   Pop $1
 
   ${NSD_CreateText} 0u 34u 77% 12u "$NexusInfluxDataDir"
@@ -30,7 +32,7 @@ Function NexusInfluxDataDirPage
   Pop $2
   ${NSD_OnClick} $2 NexusInfluxDataDirBrowse
 
-  ${NSD_CreateLabel} 0u 58u 100% 32u "This folder stores register readings used for analytics and machine learning. Choose a local drive with enough free space."
+  ${NSD_CreateLabel} 0u 58u 100% 32u "Esta pasta vai guardar os dados para analise e machine learning. Escolha um armazenamento local (HD/SSD) com espaço livre suficiente."
   Pop $3
 
   nsDialogs::Show
@@ -39,7 +41,7 @@ FunctionEnd
 Function NexusInfluxDataDirBrowse
   ${NSD_GetText} $NexusInfluxDataDirText $NexusInfluxDataDir
 
-  nsDialogs::SelectFolderDialog "Select InfluxDB data folder" "$NexusInfluxDataDir"
+  nsDialogs::SelectFolderDialog "Selecione a pasta de armazenamento de dados" "$NexusInfluxDataDir"
   Pop $0
 
   ${If} $0 != error
@@ -52,7 +54,7 @@ Function NexusInfluxDataDirPageLeave
   ${NSD_GetText} $NexusInfluxDataDirText $NexusInfluxDataDir
 
   ${If} $NexusInfluxDataDir == ""
-    MessageBox MB_ICONEXCLAMATION "Choose a folder for InfluxDB data."
+    MessageBox MB_ICONEXCLAMATION "Escolha uma pasta para armazenamento de dados."
     Abort
   ${EndIf}
 FunctionEnd
@@ -68,7 +70,9 @@ FunctionEnd
   ClearErrors
   WriteINIStr "$APPDATA\Weber Nexus\runtime-config.ini" "influxdb" "dataDir" "$NexusInfluxDataDir"
   ${If} ${Errors}
-    MessageBox MB_ICONSTOP "Nexus could not save the InfluxDB data folder configuration."
+    MessageBox MB_ICONSTOP "Nexus não pôde salvar a pasta de configuração."
     Abort
   ${EndIf}
 !macroend
+
+!endif

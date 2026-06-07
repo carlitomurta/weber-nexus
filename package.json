@@ -19,6 +19,10 @@
     "version:set": "node scripts/set-version.mjs",
     "version:check": "node scripts/set-version.mjs --check"
   },
+  "engines": {
+    "npm": ">=9.0.0 <=10",
+    "node": ">=18.0.0 <=22"
+  },
   "workspaces": [
     "apps/*",
     "packages/*",
