@@ -17,13 +17,16 @@ dist-*
 # Swap the comments on the following lines if you wish to use zero-installs
 # In that case, don't forget to run `yarn config set enableGlobalCache false`!
 # Documentation here: https://yarnpkg.com/features/caching#zero-installs
-
+.turbo/*
 #!.yarn/cache
 .pnp.*
 
 # Resources - not versionized to prevent large files
 # For influx, should be {version}/(windows or linux)/binary
 resources/influxdb/*
+
+# Local influxdb data
+influxdb-data/
 
 # AI Tools
 .agents

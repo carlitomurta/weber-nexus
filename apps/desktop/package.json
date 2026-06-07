@@ -13,7 +13,9 @@
   "license": "UNLICENSED",
   "scripts": {
     "dev": "vite dev",
-    "build": "tsc && vite build && electron-builder",
+    "build": "tsc && vite build && yarn build:windows && yarn build:linux",
+    "build:windows": "yarn workspace @weber-nexus/desktop exec electron-builder --win nsis --x64",
+    "build:linux": "yarn workspace @weber-nexus/desktop exec electron-builder --linux AppImage deb --x64",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "prettier": "prettier . -w"

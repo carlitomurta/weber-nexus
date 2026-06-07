@@ -15,7 +15,9 @@
   "scripts": {
     "dev": "turbo run dev --filter=!@weber-nexus/runtime",
     "build": "turbo run build",
-    "runtime:stop": "yarn workspace @weber-nexus/runtime stop"
+    "runtime:stop": "yarn workspace @weber-nexus/runtime stop",
+    "version:set": "node scripts/set-version.mjs",
+    "version:check": "node scripts/set-version.mjs --check"
   },
   "workspaces": [
     "apps/*",
