@@ -37,6 +37,7 @@ The desktop is the local interface of Weber Nexus.
 - Vite 5 (build tool)
 - React 18.2 + TypeScript 5.2 (strict mode)
 - TailwindCSS (styling)
+- recharts (Graphs)
 - TanStack Query v5 (React Query)
 - React Hook Form + Zod resolver
 - TanStack Route v1 (Routing)

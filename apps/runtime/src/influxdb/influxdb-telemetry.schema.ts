@@ -4,6 +4,23 @@ export const SENSOR_READINGS_MEASUREMENT = 'sensor_readings';
 
 export type SensorReadingRegisterKind = 'metric' | 'health';
 export type HealthStatusText = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+export type InfluxSensorReading = {
+  time: string;
+  controller_id: string;
+  sensor_id: string;
+  node_id: string;
+  register_address: string;
+  register_kind: SensorReadingRegisterKind;
+  raw_value: number;
+  scaled_value?: number | null;
+  unit?: string | null;
+  health_state_code?: number | null;
+  online?: boolean | null;
+  status_text?: HealthStatusText | null;
+  controller_name: string;
+  sensor_name: string;
+  register_name: string;
+};
 
 type LineField = string | number | boolean | IntegerLineField;
 type IntegerLineField = {

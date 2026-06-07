@@ -107,12 +107,61 @@ describe('InfluxdbTelemetryService', () => {
     expect(queueRepository.delete).toHaveBeenCalledWith(10);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('queries recent readings from the v3 SQL endpoint', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, [
+        {
+          time: '2024-06-07T00:00:00Z',
+          controller_id: '1',
+          sensor_id: '7',
+          node_id: '3',
+          register_address: '49',
+          register_kind: 'metric',
+          raw_value: 123,
+          scaled_value: 12.3,
+          unit: 'mm/s',
+          controller_name: 'DXM Norte',
+          sensor_name: 'Bomba 01',
+          register_name: 'Vibração',
+        },
+      ]),
+    );
+
+    const readings = await service.findRecentReadings(25);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8181/api/v3/query_sql',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('LIMIT 25'),
+      }),
+    );
+    expect(readings).toHaveLength(1);
+  });
+
+  it('skips recent reading queries when InfluxDB config is missing', async () => {
+    configsRepository.findActive.mockResolvedValue(undefined);
+
+    const readings = await service.findRecentReadings();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(readings).toEqual([]);
+  });
 });
 
 function response(status: number, body = ''): Response {
   return {
     status,
     text: async () => body,
+  } as Response;
+}
+
+function jsonResponse(status: number, body: unknown): Response {
+  return {
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
   } as Response;
 }
 
