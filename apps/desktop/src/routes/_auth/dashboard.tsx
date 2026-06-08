@@ -13,15 +13,33 @@ import {
 import { PageTitle } from "@/components/shared/PageTitle";
 import { useControllers } from "@/hooks/useControllers";
 import {
+  type InfluxReadingsRange,
   pollingRefetchInterval,
   useInfluxReadings,
 } from "@/hooks/useInfluxReadings";
 
+import dayjs from "dayjs";
+import { useState } from "react";
 import type { Controller } from "../../../types/controllers.type";
 import type { InfluxSensorReading } from "../../../types/influxdb.type";
 
 const emptyControllers: Controller[] = [];
 const emptyReadings: InfluxSensorReading[] = [];
+const rangeOptions: { label: string; value: InfluxReadingsRange }[] = [
+  { label: "2 anos", value: "2y" },
+  { label: "6 meses", value: "6m" },
+  { label: "Última semana", value: "1w" },
+];
+const chartColors = [
+  "var(--primary)",
+  "var(--warning)",
+  "var(--success)",
+  "#38bdf8",
+  "#f472b6",
+  "#a78bfa",
+  "#fb7185",
+  "#34d399",
+];
 
 export const Route = createFileRoute("/_auth/dashboard")({
   head: () => ({
@@ -40,12 +58,14 @@ interface DashboardQueryStateProps {
 }
 
 function Dashboard() {
+  const [selectedRange, setSelectedRange] = useState<InfluxReadingsRange>("6m");
   const controllersQuery = useControllers();
   const controllers = controllersQuery.data ?? emptyControllers;
-  const readingsQuery = useInfluxReadings(controllers);
+  const readingsQuery = useInfluxReadings(controllers, selectedRange);
   const readings = readingsQuery.data ?? emptyReadings;
   const latestReadings = latestRegisterReadings(readings);
-  const chartRows = buildChartRows(readings);
+  const chartSeries = buildChartSeries(readings);
+  const chartRows = buildChartRows(readings, chartSeries);
   const lastReadingAt = latestReadings[0]?.time ?? null;
   const refetchIntervalMs = pollingRefetchInterval(controllers);
   const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
@@ -59,15 +79,21 @@ function Dashboard() {
           subtitle={`Telemetria local de ${controllers.length} controladores cadastrados`}
         />
         <div className="text-right font-mono text-xs text-muted-foreground">
-          <div>Última leitura · {formatRelativeTime(lastReadingAt)}</div>
+          <div>Última leitura · {formatLocalDateTime(lastReadingAt)}</div>
           <div>Próxima atualização · {formatInterval(refetchIntervalMs)}</div>
         </div>
       </div>
       <hr />
       <ChartCard
         title="Registros em tempo real"
-        subtitle={`Última leitura ${formatRelativeTime(lastReadingAt)}`}
+        subtitle={`Última leitura ${formatLocalDateTime(lastReadingAt)}`}
         className="lg:col-span-2"
+        action={
+          <RangeFilter
+            selectedRange={selectedRange}
+            onSelectRange={setSelectedRange}
+          />
+        }
       >
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart
@@ -75,18 +101,27 @@ function Dashboard() {
             margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
           >
             <defs>
-              <linearGradient id="register1" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor="var(--primary)"
-                  stopOpacity={0.5}
-                />
-                <stop
-                  offset="100%"
-                  stopColor="var(--primary)"
-                  stopOpacity={0}
-                />
-              </linearGradient>
+              {chartSeries.map((series) => (
+                <linearGradient
+                  key={series.gradientId}
+                  id={series.gradientId}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="0%"
+                    stopColor={series.color}
+                    stopOpacity={0.42}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={series.color}
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+              ))}
             </defs>
             <CartesianGrid
               strokeDasharray="3 3"
@@ -114,37 +149,22 @@ function Dashboard() {
               }}
               labelStyle={{ color: "var(--muted-foreground)" }}
             />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="var(--warning)"
-              strokeWidth={1.5}
-              fill="url(#register1)"
-            />
+            {chartSeries.map((series) => (
+              <Area
+                key={series.key}
+                type="monotone"
+                dataKey={series.key}
+                name={series.label}
+                stroke={series.color}
+                strokeWidth={1.5}
+                fill={`url(#${series.gradientId})`}
+                connectNulls
+              />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
-        <ChartLegend
-          items={[{ color: "var(--primary)", label: "Registros métricos" }]}
-        />
+        <ChartLegend items={chartSeries} />
       </ChartCard>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {readingsQuery.isLoading ? (
-          <RegisterState message="Carregando leituras..." />
-        ) : readingsQuery.isError ? (
-          <RegisterState message="Não foi possível carregar leituras." />
-        ) : latestReadings.length === 0 ? (
-          <RegisterState message="Sem leituras do InfluxDB ainda." />
-        ) : (
-          latestReadings
-            .slice(0, 8)
-            .map((reading) => (
-              <RegisterReadingCard
-                key={`${reading.controller_id}-${reading.sensor_id}-${reading.register_address}`}
-                reading={reading}
-              />
-            ))
-        )}
-      </div>
       <hr />
       <div className="border border-border rounded-lg bg-card/60 overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
@@ -218,51 +238,6 @@ function Dashboard() {
   );
 }
 
-function RegisterState({ message }: DashboardStateProps) {
-  return (
-    <div className="rounded-lg border border-border bg-card/60 p-5 text-center text-sm text-muted-foreground md:col-span-2 xl:col-span-4">
-      {message}
-    </div>
-  );
-}
-
-function RegisterReadingCard({ reading }: { reading: InfluxSensorReading }) {
-  const health = reading.register_kind === "health";
-
-  return (
-    <div className="rounded-lg border border-border bg-card/60 p-4">
-      <div className="truncate text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
-        {reading.controller_name} · {reading.sensor_name}
-      </div>
-      <div className="mt-1 truncate text-sm font-medium">
-        {reading.register_name}
-      </div>
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-2xl font-semibold tabular-nums text-primary">
-            {formatReadingValue(reading)}
-          </div>
-          <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-            Endereço {reading.register_address}
-          </div>
-        </div>
-        <div
-          className={`rounded px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em] ${
-            health
-              ? "bg-primary/10 text-primary"
-              : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {health ? "Health" : "Métrica"}
-        </div>
-      </div>
-      <div className="mt-3 text-[11px] text-muted-foreground">
-        Última leitura {formatRelativeTime(reading.time)}
-      </div>
-    </div>
-  );
-}
-
 function DashboardState({ message }: DashboardStateProps) {
   return (
     <div className="p-5 text-center text-sm text-muted-foreground">
@@ -295,60 +270,113 @@ function latestRegisterReadings(
   );
 }
 
-function buildChartRows(readings: InfluxSensorReading[]) {
-  return readings
-    .filter(
-      (reading) =>
-        reading.register_kind === "metric" &&
-        typeof reading.scaled_value === "number",
-    )
-    .slice(0, 60)
-    .reverse()
-    .map((reading) => ({
-      time: new Date(reading.time).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-      name: reading.register_name,
-      value: reading.scaled_value,
-    }));
+type ChartSeries = {
+  key: string;
+  label: string;
+  color: string;
+  gradientId: string;
+};
+
+type ChartRow = {
+  time: string;
+  timestamp: number;
+} & Record<string, string | number | null>;
+
+function buildChartSeries(readings: InfluxSensorReading[]): ChartSeries[] {
+  const seriesByKey = new Map<string, ChartSeries>();
+
+  metricReadings(readings).forEach((reading) => {
+    const key = registerChartKey(reading);
+
+    if (seriesByKey.has(key)) return;
+
+    const color = stableChartColor(key);
+
+    seriesByKey.set(key, {
+      key,
+      label: `${reading.register_name} · ${reading.sensor_name}`,
+      color,
+      gradientId: `${key}_gradient`,
+    });
+  });
+
+  return [...seriesByKey.values()];
 }
 
-function formatReadingValue(reading: InfluxSensorReading): string {
-  if (reading.register_kind === "health") {
-    return reading.status_text ?? "UNKNOWN";
+function buildChartRows(
+  readings: InfluxSensorReading[],
+  series: ChartSeries[],
+): ChartRow[] {
+  const metricRows = metricReadings(readings).sort(
+    (left, right) =>
+      new Date(left.time).getTime() - new Date(right.time).getTime(),
+  );
+  const rowsByTimestamp = new Map<number, ChartRow>();
+
+  metricRows.forEach((reading) => {
+    const timestamp = new Date(reading.time).getTime();
+    const key = registerChartKey(reading);
+    const row =
+      rowsByTimestamp.get(timestamp) ??
+      ({
+        timestamp,
+        time: formatLocalTime(reading.time),
+      } as ChartRow);
+
+    row[key] = reading.scaled_value ?? reading.raw_value ?? null;
+    rowsByTimestamp.set(timestamp, row);
+  });
+
+  return [...rowsByTimestamp.values()]
+    .sort((left, right) => left.timestamp - right.timestamp)
+    .map((row) => {
+      series.forEach((item) => {
+        row[item.key] ??= null;
+      });
+
+      return row;
+    });
+}
+
+function metricReadings(readings: InfluxSensorReading[]) {
+  return readings.filter(
+    (reading) =>
+      reading.register_kind === "metric" &&
+      (typeof reading.scaled_value === "number" ||
+        typeof reading.raw_value === "number"),
+  );
+}
+
+function registerChartKey(reading: InfluxSensorReading): string {
+  return [
+    "register",
+    reading.controller_id,
+    reading.sensor_id,
+    reading.register_address,
+  ].join("_");
+}
+
+function stableChartColor(value: string): string {
+  let hash = 0;
+
+  for (const character of value) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   }
 
-  const value =
-    typeof reading.scaled_value === "number"
-      ? reading.scaled_value
-      : reading.raw_value;
-
-  return `${formatNumber(value)}${reading.unit ? ` ${reading.unit}` : ""}`;
+  return chartColors[hash % chartColors.length];
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    maximumFractionDigits: 3,
-  }).format(value);
-}
-
-function formatRelativeTime(value: string | null): string {
+function formatLocalDateTime(value: string | null): string {
+  console.log(
+    dayjs.utc(value).tz("America/Sao_Paulo").format("DD/MM/YYYY HH:mm:ss"),
+  );
   if (!value) return "sem leitura";
 
-  const elapsedMs = Date.now() - new Date(value).getTime();
-  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return "agora";
+  return dayjs.utc(value).tz("America/Sao_Paulo").format("DD/MM/YYYY HH:mm:ss");
+}
 
-  const elapsedSeconds = Math.floor(elapsedMs / 1000);
-  if (elapsedSeconds < 5) return "agora";
-  if (elapsedSeconds < 60) return `há ${elapsedSeconds}s`;
-
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  if (elapsedMinutes < 60) return `há ${elapsedMinutes}min`;
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  return `há ${elapsedHours}h`;
+function formatLocalTime(value: string): string {
+  return dayjs.utc(value).tz("America/Sao_Paulo").format("HH:mm:ss");
 }
 
 function formatInterval(intervalMs: number): string {
@@ -374,29 +402,75 @@ function ChartCard({
   title,
   subtitle,
   className,
+  action,
   children,
 }: {
   title: string;
   subtitle?: string;
   className?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div
       className={`border border-border rounded-lg bg-card/60 p-4 ${className ?? ""}`}
     >
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {subtitle && (
-          <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
-        )}
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {subtitle && (
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {action}
       </div>
       {children}
     </div>
   );
 }
 
+function RangeFilter({
+  selectedRange,
+  onSelectRange,
+}: {
+  selectedRange: InfluxReadingsRange;
+  onSelectRange: (range: InfluxReadingsRange) => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 rounded-md border border-border bg-background p-0.5">
+      {rangeOptions.map((option) => {
+        const active = option.value === selectedRange;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onSelectRange(option.value)}
+            className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="mt-2 text-[11px] text-muted-foreground">
+        Sem registros métricos para o gráfico.
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-4 mt-2 flex-wrap">
       {items.map((it) => (

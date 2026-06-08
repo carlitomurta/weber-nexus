@@ -6,15 +6,18 @@ import type { InfluxSensorReading } from "../../types/influxdb.type";
 
 const DEFAULT_REFETCH_INTERVAL_MS = 300000;
 
-export function useInfluxReadings(controllers: Controller[]) {
+export type InfluxReadingsRange = "2y" | "6m" | "1w";
+
+export function useInfluxReadings(
+  controllers: Controller[],
+  range: InfluxReadingsRange,
+) {
   return useQuery({
-    queryKey: ["influxdb", "readings"],
+    queryKey: ["influxdb", "readings", range],
     queryFn: async () => {
       const { data } = await api.get<InfluxSensorReading[]>(
         "/influxdb/readings",
-        {
-          params: { limit: 300 },
-        },
+        { params: { range } },
       );
 
       return data;

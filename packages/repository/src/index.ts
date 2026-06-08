@@ -5,6 +5,7 @@ export {
   type NewController,
 } from "./repositories/controllers.repository.js";
 export {
+  DEFAULT_INFLUXDB_AUTH_TOKEN,
   InfluxConfigsRepository,
   type InfluxConfig,
 } from "./repositories/influx-configs.repository.js";

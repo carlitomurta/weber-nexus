@@ -9,6 +9,7 @@ const executeDayJsPlugins = () => {
   dayjs.extend(timezone);
   dayjs.extend(weekOfYear);
   dayjs.extend(isoWeek);
+  dayjs.tz.setDefault("America/Sao_Paulo");
 };
 
 export const dayjsConfig = {

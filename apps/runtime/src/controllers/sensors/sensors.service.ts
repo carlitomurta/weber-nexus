@@ -119,7 +119,10 @@ export class SensorsService {
     register: NewSensor['registers'][number],
   ): boolean {
     if (register.isHealthCheck) return false;
-    if (register.scaleType === undefined && register.scaleFactor === undefined) {
+    if (
+      register.scaleType === undefined &&
+      register.scaleFactor === undefined
+    ) {
       return false;
     }
 

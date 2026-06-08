@@ -4,9 +4,13 @@ import {
   OnApplicationShutdown,
 } from '@nestjs/common';
 import { Logger } from '@weber-nexus/logger';
+import {
+  DEFAULT_INFLUXDB_AUTH_TOKEN,
+  InfluxConfigsRepository,
+} from '@weber-nexus/repository';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -14,6 +18,7 @@ type InfluxdbStatus = 'external' | 'started' | 'unavailable' | 'disabled';
 const DEFAULT_INFLUXDB_URL = 'http://127.0.0.1:8181';
 const DEFAULT_HTTP_BIND = '127.0.0.1:8181';
 const INFLUXDB_VERSION = '3.9.3';
+const INFLUXDB_START_TIMEOUT_MS = 10_000;
 
 @Injectable()
 export class InfluxdbRuntimeService
@@ -23,7 +28,12 @@ export class InfluxdbRuntimeService
   private child: ChildProcessWithoutNullStreams | undefined;
   private status: InfluxdbStatus = 'unavailable';
 
+  constructor(
+    private readonly influxConfigsRepository: InfluxConfigsRepository,
+  ) {}
+
   async onApplicationBootstrap() {
+    await this.influxConfigsRepository.ensureDefault();
     await this.ensureStarted();
   }
 
@@ -49,8 +59,10 @@ export class InfluxdbRuntimeService
     }
 
     const url = process.env.NEXUS_INFLUXDB_URL ?? DEFAULT_INFLUXDB_URL;
+    const token = await this.resolveAuthToken();
 
-    if (await this.isInfluxdbReachable(url)) {
+    if (await this.isInfluxdbReachable(url, token)) {
+      await this.ensureConfiguredDatabase(url);
       this.status = 'external';
       this.logger.info(`InfluxDB is already running at ${url}.`);
       return this.status;
@@ -64,9 +76,11 @@ export class InfluxdbRuntimeService
     }
 
     const dataDir = await this.resolveDataDir();
+    const adminTokenFile = await this.ensureAdminTokenFile(dataDir);
 
     this.logger.info(`Starting InfluxDB from ${binaryPath}.`);
     this.logger.info(`InfluxDB data directory: ${dataDir}`);
+    this.logger.info(`InfluxDB admin token file: ${adminTokenFile}`);
 
     this.child = spawn(
       binaryPath,
@@ -80,6 +94,8 @@ export class InfluxdbRuntimeService
         dataDir,
         '--http-bind',
         process.env.NEXUS_INFLUXDB_HTTP_BIND ?? DEFAULT_HTTP_BIND,
+        '--admin-token-file',
+        adminTokenFile,
       ],
       {
         env: this.buildProcessEnv(binaryPath),
@@ -117,15 +133,23 @@ export class InfluxdbRuntimeService
     });
 
     this.status = 'started';
+    await this.waitForInfluxdb(url, token);
+    await this.ensureConfiguredDatabase(url);
     return this.status;
   }
 
-  private async isInfluxdbReachable(url: string): Promise<boolean> {
+  private async isInfluxdbReachable(
+    url: string,
+    token: string,
+  ): Promise<boolean> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 1000);
 
     try {
       const response = await fetch(`${url}/health`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         signal: controller.signal,
       });
 
@@ -135,6 +159,60 @@ export class InfluxdbRuntimeService
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private async waitForInfluxdb(url: string, token: string): Promise<void> {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < INFLUXDB_START_TIMEOUT_MS) {
+      if (await this.isInfluxdbReachable(url, token)) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    throw new Error(`InfluxDB did not become reachable at ${url}.`);
+  }
+
+  private async resolveAuthToken(): Promise<string> {
+    const config = await this.influxConfigsRepository.ensureDefault();
+
+    return config.token;
+  }
+
+  private async ensureConfiguredDatabase(url: string): Promise<void> {
+    const config = await this.influxConfigsRepository.ensureDefault();
+    const response = await fetch(
+      new URL('/api/v3/configure/database', this.normalizeUrl(url)),
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ db: config.bucket }),
+      },
+    );
+
+    if (response.ok) {
+      this.logger.info(`InfluxDB database is ready: ${config.bucket}`);
+      return;
+    }
+
+    const responseText = await response.text();
+    if (responseText.toLowerCase().includes('already exists')) {
+      this.logger.info(`InfluxDB database already exists: ${config.bucket}`);
+      return;
+    }
+
+    throw new Error(
+      `InfluxDB database setup failed with status ${response.status}: ${responseText}`,
+    );
+  }
+
+  private normalizeUrl(url: string): string {
+    return url.endsWith('/') ? url : `${url}/`;
   }
 
   private resolveBinaryPath(): string | undefined {
@@ -194,6 +272,10 @@ export class InfluxdbRuntimeService
     if (process.platform === 'win32') {
       return {
         ...process.env,
+        INFLUXDB3_AUTH_TOKEN:
+          process.env.NEXUS_INFLUXDB_TOKEN ??
+          process.env.INFLUXDB3_AUTH_TOKEN ??
+          DEFAULT_INFLUXDB_AUTH_TOKEN,
         PATH: [binaryDir, pythonDir, pythonDllDir, process.env.PATH]
           .filter((value): value is string => Boolean(value))
           .join(';'),
@@ -203,6 +285,10 @@ export class InfluxdbRuntimeService
 
     return {
       ...process.env,
+      INFLUXDB3_AUTH_TOKEN:
+        process.env.NEXUS_INFLUXDB_TOKEN ??
+        process.env.INFLUXDB3_AUTH_TOKEN ??
+        DEFAULT_INFLUXDB_AUTH_TOKEN,
       LD_LIBRARY_PATH: [binaryDir, pythonLibDir, process.env.LD_LIBRARY_PATH]
         .filter((value): value is string => Boolean(value))
         .join(':'),
@@ -273,6 +359,31 @@ export class InfluxdbRuntimeService
   private async ensureDataDir(dataDir: string): Promise<string> {
     await mkdir(dataDir, { recursive: true });
     return dataDir;
+  }
+
+  private async ensureAdminTokenFile(dataDir: string): Promise<string> {
+    const tokenFile = path.join(dataDir, 'admin-token.json');
+    const token =
+      process.env.NEXUS_INFLUXDB_TOKEN ??
+      process.env.INFLUXDB3_AUTH_TOKEN ??
+      DEFAULT_INFLUXDB_AUTH_TOKEN;
+    const tokenFileContent = `${JSON.stringify(
+      {
+        token,
+        name: 'nexus-admin',
+        description: 'Local Weber Nexus admin token',
+      },
+      null,
+      2,
+    )}\n`;
+
+    await writeFile(tokenFile, tokenFileContent, { encoding: 'utf8' });
+
+    if (process.platform !== 'win32') {
+      await chmod(tokenFile, 0o600);
+    }
+
+    return tokenFile;
   }
 
   private async readConfiguredDataDir(): Promise<string | undefined> {
