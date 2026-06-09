@@ -13,6 +13,7 @@ jest.mock('@weber-nexus/repository', () => ({
 
 import { InfluxdbTelemetryService } from './influxdb-telemetry.service';
 import type { ControllerPollingResult } from '@weber-nexus/polling-engine';
+import { InfluxdbTelemetryRepository } from './influxdb-telemetry.repository';
 
 describe('InfluxdbTelemetryService', () => {
   const config = {
@@ -34,6 +35,7 @@ describe('InfluxdbTelemetryService', () => {
     delete: jest.Mock;
   };
   let sensorsRepository: { findAll: jest.Mock };
+  let telemetryRepository: InfluxdbTelemetryRepository;
   let service: InfluxdbTelemetryService;
 
   beforeEach(() => {
@@ -61,10 +63,12 @@ describe('InfluxdbTelemetryService', () => {
         },
       ]),
     };
+    telemetryRepository = new InfluxdbTelemetryRepository();
     service = new InfluxdbTelemetryService(
       configsRepository as never,
       queueRepository as never,
       sensorsRepository as never,
+      telemetryRepository,
     );
   });
 

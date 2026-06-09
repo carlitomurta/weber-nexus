@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@weber-nexus/logger';
 import { AppModule } from './app.module';
+import { RuntimeEnvService } from './config/runtime-env.service';
 
 const logger = new Logger('runtime/main.ts');
 
@@ -23,8 +24,14 @@ async function bootstrap() {
   // logger.info('Health server initialized');
 
   const app = await NestFactory.create(AppModule);
+  const runtimeEnv = app.get(RuntimeEnvService);
+
   app.enableCors({ origin: true });
   app.enableShutdownHooks();
-  await app.listen(process.env.PORT ?? 3000, '127.0.0.1');
+  await app.listen(runtimeEnv.runtimePort(), runtimeEnv.runtimeHost());
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  logger.error('Nexus Runtime failed to start.', error);
+  process.exit(1);
+});

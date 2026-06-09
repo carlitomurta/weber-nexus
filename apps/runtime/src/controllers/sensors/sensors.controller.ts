@@ -6,13 +6,14 @@ import {
   Param,
   Patch,
   Post,
+  ParseIntPipe,
 } from '@nestjs/common';
 import type { NewSensor, SensorWrite } from '@weber-nexus/repository';
 import { SensorsService } from './sensors.service';
 
 @Controller('sensors')
 export class SensorsController {
-  constructor(private service: SensorsService) {}
+  constructor(private readonly service: SensorsService) {}
 
   @Get()
   findAll() {
@@ -20,8 +21,8 @@ export class SensorsController {
   }
 
   @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.service.getSensorById(Number(id));
+  findById(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getSensorById(id);
   }
 
   @Post()
@@ -35,7 +36,7 @@ export class SensorsController {
   }
 
   @Delete(':id')
-  delete(@Param('id') sensorId: string) {
-    return this.service.deleteSensor(Number(sensorId));
+  delete(@Param('id', ParseIntPipe) sensorId: number) {
+    return this.service.deleteSensor(sensorId);
   }
 }

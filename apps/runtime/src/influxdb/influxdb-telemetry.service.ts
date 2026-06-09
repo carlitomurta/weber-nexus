@@ -6,12 +6,16 @@ import {
   InfluxWriteQueueRepository,
   SensorsRepository,
   type InfluxConfig,
-  type Sensor,
 } from '@weber-nexus/repository';
 import type { InfluxSensorReading } from './influxdb-telemetry.schema';
 import { buildSensorReadingsLineProtocol } from './influxdb-telemetry.schema';
+import { InfluxdbTelemetryRepository } from './influxdb-telemetry.repository';
+import {
+  buildReadingRegisterBatches,
+  buildSensorReadingsSql,
+  type ReadingRegister,
+} from './sql/sensor-readings.sql';
 
-const WRITE_TIMEOUT_MS = 3000;
 const QUEUE_DRAIN_LIMIT = 25;
 const INFLUX_QUERY_RESULT_CAP = 300;
 const QUERY_REGISTER_BATCH_SIZE = 25;
@@ -26,6 +30,7 @@ export class InfluxdbTelemetryService {
     private readonly influxConfigsRepository: InfluxConfigsRepository,
     private readonly influxWriteQueueRepository: InfluxWriteQueueRepository,
     private readonly sensorsRepository: SensorsRepository,
+    private readonly telemetryRepository: InfluxdbTelemetryRepository,
   ) {}
 
   async writePollingResult(result: ControllerPollingResult): Promise<void> {
@@ -37,7 +42,7 @@ export class InfluxdbTelemetryService {
     await this.drainQueue(config);
 
     try {
-      await this.writeLineProtocol(config, lineProtocol);
+      await this.telemetryRepository.writeLineProtocol(config, lineProtocol);
     } catch (error) {
       const message = errorMessage(error);
 
@@ -52,7 +57,10 @@ export class InfluxdbTelemetryService {
     const config = await this.influxConfigsRepository.ensureDefault();
     const end = new Date();
     const start = startDateForRange(range, end);
-    const batches = registerBatches(await this.sensorsRepository.findAll());
+    const batches = buildReadingRegisterBatches(
+      await this.sensorsRepository.findAll(),
+      QUERY_REGISTER_BATCH_SIZE,
+    );
 
     if (batches.length === 0) {
       return [];
@@ -80,7 +88,10 @@ export class InfluxdbTelemetryService {
 
     for (const item of pending) {
       try {
-        await this.writeLineProtocol(config, item.lineProtocol);
+        await this.telemetryRepository.writeLineProtocol(
+          config,
+          item.lineProtocol,
+        );
         await this.influxWriteQueueRepository.delete(item.id);
       } catch (error) {
         await this.influxWriteQueueRepository.markAttempt(
@@ -97,36 +108,6 @@ export class InfluxdbTelemetryService {
     }
   }
 
-  private async writeLineProtocol(
-    config: InfluxConfig,
-    lineProtocol: string,
-  ): Promise<void> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(buildWriteUrl(config), {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${config.token}`,
-          Accept: 'application/json',
-          'Content-Type': 'text/plain; charset=utf-8',
-        },
-        body: lineProtocol,
-        signal: controller.signal,
-      });
-
-      if (response.status !== 204) {
-        const responseText = await response.text();
-        throw new Error(
-          `InfluxDB write failed with status ${response.status}: ${responseText}`,
-        );
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
   private async queryReadings(
     config: InfluxConfig,
     start: Date,
@@ -137,11 +118,13 @@ export class InfluxdbTelemetryService {
     let cursor = start;
 
     while (cursor < end) {
-      const page = await this.queryReadingsRange(
+      const page = await this.telemetryRepository.querySensorReadings(
         config,
-        cursor,
-        end,
-        registers,
+        buildSensorReadingsSql({
+          start: cursor,
+          end,
+          registers,
+        }),
       );
 
       readings.push(...page);
@@ -162,105 +145,6 @@ export class InfluxdbTelemetryService {
 
     return readings;
   }
-
-  private async queryReadingsRange(
-    config: InfluxConfig,
-    start: Date,
-    end: Date,
-    registers: ReadingRegister[],
-  ): Promise<InfluxSensorReading[]> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(buildQueryUrl(config), {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${config.token}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          db: config.bucket,
-          format: 'jsonl',
-          q: buildReadingsQuery(start, end, registers),
-        }),
-        signal: controller.signal,
-      });
-
-      if (response.status !== 200) {
-        const responseText = await response.text();
-        throw new Error(
-          `InfluxDB query failed with status ${response.status}: ${responseText}`,
-        );
-      }
-
-      return parseJsonLines(await response.text());
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-}
-
-function buildWriteUrl(config: InfluxConfig): string {
-  const url = new URL('/api/v2/write', normalizeHost(config.host));
-
-  url.searchParams.set('org', config.org);
-  url.searchParams.set('bucket', config.bucket);
-  url.searchParams.set('precision', 'ns');
-
-  return url.toString();
-}
-
-function buildQueryUrl(config: InfluxConfig): string {
-  return new URL('/api/v3/query_sql', normalizeHost(config.host)).toString();
-}
-
-type ReadingRegister = {
-  controllerId: number;
-  sensorId: number;
-  registerAddress: number;
-};
-
-function buildReadingsQuery(
-  start: Date,
-  end: Date,
-  registers: ReadingRegister[],
-): string {
-  return `SELECT time, controller_id, sensor_id, node_id, register_address, register_kind, raw_value, scaled_value, unit, health_state_code, online, status_text, controller_name, sensor_name, register_name FROM sensor_readings WHERE time >= '${start.toISOString()}' AND time < '${end.toISOString()}' AND (${registerWhereClause(registers)}) ORDER BY time ASC`;
-}
-
-function registerWhereClause(registers: ReadingRegister[]): string {
-  return registers
-    .map(
-      (register) =>
-        `(controller_id = '${sqlString(register.controllerId)}' AND sensor_id = '${sqlString(register.sensorId)}' AND register_address = '${sqlString(register.registerAddress)}')`,
-    )
-    .join(' OR ');
-}
-
-function registerBatches(sensors: Sensor[]): ReadingRegister[][] {
-  const registers = sensors.flatMap((sensor) =>
-    sensor.registers
-      .filter((register) => !register.isHealthCheck)
-      .map((register) => ({
-        controllerId: sensor.controllerId,
-        sensorId: sensor.id,
-        registerAddress: register.address,
-      })),
-  );
-
-  return chunk(registers, QUERY_REGISTER_BATCH_SIZE);
-}
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
 }
 
 function startDateForRange(range: InfluxReadingsRange, end: Date): Date {
@@ -280,10 +164,6 @@ function startDateForRange(range: InfluxReadingsRange, end: Date): Date {
   return start;
 }
 
-function sqlString(value: string | number): string {
-  return String(value).replaceAll("'", "''");
-}
-
 function cursorAfter(readings: InfluxSensorReading[]): Date | undefined {
   const lastReading = readings.at(-1);
   if (!lastReading) return undefined;
@@ -292,18 +172,6 @@ function cursorAfter(readings: InfluxSensorReading[]): Date | undefined {
   if (!Number.isFinite(lastTime)) return undefined;
 
   return new Date(lastTime + 1);
-}
-
-function parseJsonLines(body: string): InfluxSensorReading[] {
-  return body
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as InfluxSensorReading);
-}
-
-function normalizeHost(host: string): string {
-  return host.endsWith('/') ? host : `${host}/`;
 }
 
 function errorMessage(error: unknown): string {

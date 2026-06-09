@@ -12599,6 +12599,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "weber-nexus@workspace:."
   dependencies:
+    "@types/node": "npm:^25.9.2"
     turbo: "npm:^2.9.16"
     typescript: "npm:^6.0.3"
   languageName: unknown

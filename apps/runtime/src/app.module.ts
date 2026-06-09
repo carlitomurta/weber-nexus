@@ -1,12 +1,19 @@
 import { Module } from '@nestjs/common';
 import { RepositoryModule } from '@weber-nexus/repository';
 import { AuthModule } from './auth/auth.module';
+import { RuntimeConfigModule } from './config/runtime-config.module';
 import { ControllersModule } from './controllers/controllers.module';
 import { InfluxdbModule } from './influxdb/influxdb.module';
-import { RuntimeControlController } from './runtime-control.controller';
+import { RuntimeControlModule } from './runtime-control/runtime-control.module';
 
 @Module({
-  imports: [RepositoryModule, InfluxdbModule, AuthModule, ControllersModule],
-  controllers: [RuntimeControlController],
+  imports: [
+    RuntimeConfigModule,
+    RepositoryModule,
+    RuntimeControlModule,
+    InfluxdbModule,
+    AuthModule,
+    ControllersModule,
+  ],
 })
 export class AppModule {}

@@ -1,11 +1,9 @@
-import { Controller, ForbiddenException, Post, Req } from '@nestjs/common';
-import type { Request } from 'express';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 
-@Controller('runtime')
-export class RuntimeControlController {
-  @Post('stop')
-  stop(@Req() request: Request) {
-    if (!isLocalRequest(request.socket.remoteAddress)) {
+@Injectable()
+export class RuntimeControlService {
+  stop(remoteAddress?: string): { stopping: true } {
+    if (!isLocalRequest(remoteAddress)) {
       throw new ForbiddenException('Runtime can only be stopped locally');
     }
 

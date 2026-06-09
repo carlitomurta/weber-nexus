@@ -15,6 +15,10 @@ import {
   type Sensor,
 } from '@weber-nexus/repository';
 import { InfluxdbTelemetryService } from '../influxdb/influxdb-telemetry.service';
+import {
+  toPollingController,
+  toPollingSensors,
+} from './polling-controller.mapper';
 
 @Injectable()
 export class PollingRuntimeService
@@ -106,35 +110,8 @@ export class PollingRuntimeService
     }
 
     this.pollingEngine.startController(
-      {
-        id: controller.id,
-        name: controller.name,
-        ipAddress: controller.ipAddress,
-        pollingIntervalMs: controller.pollingIntervalMs,
-        isMultihop: controller.isMultihop,
-      },
-      sensors.map((sensor) => ({
-        id: sensor.id,
-        controllerId: sensor.controllerId,
-        nodeId: sensor.nodeId,
-        name: sensor.name,
-        registers: sensor.registers.map((register) => {
-          const legacyRegister = register as typeof register & {
-            scale?: number;
-          };
-
-          return {
-            name: register.name,
-            address: register.address,
-            scaleType: register.isHealthCheck ? undefined : register.scaleType,
-            scaleFactor: register.isHealthCheck
-              ? undefined
-              : (register.scaleFactor ?? legacyRegister.scale),
-            unit: register.unit ?? '',
-            isHealthCheck: register.isHealthCheck,
-          };
-        }),
-      })),
+      toPollingController(controller),
+      toPollingSensors(sensors),
     );
 
     this.logger.info(

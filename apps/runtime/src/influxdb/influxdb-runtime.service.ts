@@ -13,10 +13,9 @@ import { existsSync } from 'node:fs';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { RuntimeEnvService } from '../config/runtime-env.service';
 
 type InfluxdbStatus = 'external' | 'started' | 'unavailable' | 'disabled';
-const DEFAULT_INFLUXDB_URL = 'http://127.0.0.1:8181';
-const DEFAULT_HTTP_BIND = '127.0.0.1:8181';
 const INFLUXDB_VERSION = '3.9.3';
 const INFLUXDB_START_TIMEOUT_MS = 10_000;
 
@@ -30,6 +29,7 @@ export class InfluxdbRuntimeService
 
   constructor(
     private readonly influxConfigsRepository: InfluxConfigsRepository,
+    private readonly runtimeEnv: RuntimeEnvService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -50,7 +50,7 @@ export class InfluxdbRuntimeService
   }
 
   async ensureStarted(): Promise<InfluxdbStatus> {
-    if (process.env.NEXUS_DISABLE_INFLUXDB === '1') {
+    if (this.runtimeEnv.isInfluxdbDisabled()) {
       this.status = 'disabled';
       this.logger.warn(
         'InfluxDB startup is disabled by NEXUS_DISABLE_INFLUXDB.',
@@ -58,7 +58,7 @@ export class InfluxdbRuntimeService
       return this.status;
     }
 
-    const url = process.env.NEXUS_INFLUXDB_URL ?? DEFAULT_INFLUXDB_URL;
+    const url = this.runtimeEnv.influxdbUrl();
     const token = await this.resolveAuthToken();
 
     if (await this.isInfluxdbReachable(url, token)) {
@@ -87,13 +87,13 @@ export class InfluxdbRuntimeService
       [
         'serve',
         '--node-id',
-        process.env.NEXUS_INFLUXDB_NODE_ID ?? 'nexus-local',
+        this.runtimeEnv.influxdbNodeId(),
         '--object-store',
         'file',
         '--data-dir',
         dataDir,
         '--http-bind',
-        process.env.NEXUS_INFLUXDB_HTTP_BIND ?? DEFAULT_HTTP_BIND,
+        this.runtimeEnv.influxdbHttpBind(),
         '--admin-token-file',
         adminTokenFile,
       ],
@@ -220,8 +220,8 @@ export class InfluxdbRuntimeService
       process.platform === 'win32' ? 'influxdb3.exe' : 'influxdb3';
     const platformDir = process.platform === 'win32' ? 'windows' : 'linux';
     const moduleDir = __dirname;
-    const explicitPath = process.env.NEXUS_INFLUXDB_BINARY_PATH;
-    const resourcesPath = process.env.NEXUS_RESOURCES_PATH;
+    const explicitPath = this.runtimeEnv.influxdbBinaryPath();
+    const resourcesPath = this.runtimeEnv.resourcesPath();
 
     const candidates = [
       explicitPath,
@@ -271,34 +271,47 @@ export class InfluxdbRuntimeService
 
     if (process.platform === 'win32') {
       return {
-        ...process.env,
-        INFLUXDB3_AUTH_TOKEN:
-          process.env.NEXUS_INFLUXDB_TOKEN ??
-          process.env.INFLUXDB3_AUTH_TOKEN ??
+        ...this.runtimeEnv.processEnv(),
+        INFLUXDB3_AUTH_TOKEN: this.runtimeEnv.influxdbToken(
           DEFAULT_INFLUXDB_AUTH_TOKEN,
-        PATH: [binaryDir, pythonDir, pythonDllDir, process.env.PATH]
+        ),
+        PATH: [
+          binaryDir,
+          pythonDir,
+          pythonDllDir,
+          this.runtimeEnv.processPath(),
+        ]
           .filter((value): value is string => Boolean(value))
           .join(';'),
-        PYTHONHOME: existsSync(pythonDir) ? pythonDir : process.env.PYTHONHOME,
+        PYTHONHOME: existsSync(pythonDir)
+          ? pythonDir
+          : this.runtimeEnv.pythonHome(),
       };
     }
 
     return {
-      ...process.env,
-      INFLUXDB3_AUTH_TOKEN:
-        process.env.NEXUS_INFLUXDB_TOKEN ??
-        process.env.INFLUXDB3_AUTH_TOKEN ??
+      ...this.runtimeEnv.processEnv(),
+      INFLUXDB3_AUTH_TOKEN: this.runtimeEnv.influxdbToken(
         DEFAULT_INFLUXDB_AUTH_TOKEN,
-      LD_LIBRARY_PATH: [binaryDir, pythonLibDir, process.env.LD_LIBRARY_PATH]
+      ),
+      LD_LIBRARY_PATH: [
+        binaryDir,
+        pythonLibDir,
+        this.runtimeEnv.ldLibraryPath(),
+      ]
         .filter((value): value is string => Boolean(value))
         .join(':'),
-      PYTHONHOME: existsSync(pythonDir) ? pythonDir : process.env.PYTHONHOME,
+      PYTHONHOME: existsSync(pythonDir)
+        ? pythonDir
+        : this.runtimeEnv.pythonHome(),
     };
   }
 
   private async resolveDataDir(): Promise<string> {
-    if (process.env.NEXUS_INFLUXDB_DATA_DIR) {
-      return this.ensureDataDir(process.env.NEXUS_INFLUXDB_DATA_DIR);
+    const dataDir = this.runtimeEnv.influxdbDataDir();
+
+    if (dataDir) {
+      return this.ensureDataDir(dataDir);
     }
 
     const configuredDataDir = await this.readConfiguredDataDir();
@@ -309,7 +322,8 @@ export class InfluxdbRuntimeService
     if (process.platform === 'win32') {
       return this.ensureDataDir(
         path.join(
-          process.env.LOCALAPPDATA ?? path.join(homedir(), 'AppData', 'Local'),
+          this.runtimeEnv.localAppDataDir() ??
+            path.join(homedir(), 'AppData', 'Local'),
           'Weber Nexus',
           'influxdb',
         ),
@@ -345,12 +359,14 @@ export class InfluxdbRuntimeService
       return undefined;
     }
 
-    if (process.env.NEXUS_APP_INSTALL_DIR) {
-      return process.env.NEXUS_APP_INSTALL_DIR;
+    const appInstallDir = this.runtimeEnv.appInstallDir();
+    if (appInstallDir) {
+      return appInstallDir;
     }
 
-    if (process.env.NEXUS_RESOURCES_PATH) {
-      return path.dirname(process.env.NEXUS_RESOURCES_PATH);
+    const resourcesPath = this.runtimeEnv.resourcesPath();
+    if (resourcesPath) {
+      return path.dirname(resourcesPath);
     }
 
     return process.cwd();
@@ -363,10 +379,7 @@ export class InfluxdbRuntimeService
 
   private async ensureAdminTokenFile(dataDir: string): Promise<string> {
     const tokenFile = path.join(dataDir, 'admin-token.json');
-    const token =
-      process.env.NEXUS_INFLUXDB_TOKEN ??
-      process.env.INFLUXDB3_AUTH_TOKEN ??
-      DEFAULT_INFLUXDB_AUTH_TOKEN;
+    const token = this.runtimeEnv.influxdbToken(DEFAULT_INFLUXDB_AUTH_TOKEN);
     const tokenFileContent = `${JSON.stringify(
       {
         token,
@@ -406,20 +419,22 @@ export class InfluxdbRuntimeService
   }
 
   private resolveRuntimeConfigPath(): string {
-    if (process.env.NEXUS_RUNTIME_CONFIG_PATH) {
-      return process.env.NEXUS_RUNTIME_CONFIG_PATH;
+    const runtimeConfigPath = this.runtimeEnv.runtimeConfigPath();
+    if (runtimeConfigPath) {
+      return runtimeConfigPath;
     }
 
     if (process.platform === 'win32') {
       return path.join(
-        process.env.APPDATA ?? path.join(homedir(), 'AppData', 'Roaming'),
+        this.runtimeEnv.roamingAppDataDir() ??
+          path.join(homedir(), 'AppData', 'Roaming'),
         'Weber Nexus',
         'runtime-config.ini',
       );
     }
 
     return path.join(
-      process.env.XDG_CONFIG_HOME ?? path.join(homedir(), '.config'),
+      this.runtimeEnv.xdgConfigHome() ?? path.join(homedir(), '.config'),
       'weber-nexus',
       'runtime-config.ini',
     );

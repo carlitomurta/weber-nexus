@@ -6,13 +6,14 @@ import {
   Param,
   Patch,
   Post,
+  ParseIntPipe,
 } from '@nestjs/common';
 import type { ControllerWrite, NewController } from '@weber-nexus/repository';
 import { ControllersService } from './controller.service';
 
 @Controller('controllers')
 export class ControllersController {
-  constructor(private service: ControllersService) {}
+  constructor(private readonly service: ControllersService) {}
 
   @Get()
   findAll() {
@@ -20,8 +21,8 @@ export class ControllersController {
   }
 
   @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.service.getControllerById(Number(id));
+  findById(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getControllerById(id);
   }
 
   @Post()
@@ -35,7 +36,7 @@ export class ControllersController {
   }
 
   @Delete(':id')
-  delete(@Param('id') controllerId: string) {
-    return this.service.deleteController(Number(controllerId));
+  delete(@Param('id', ParseIntPipe) controllerId: number) {
+    return this.service.deleteController(controllerId);
   }
 }

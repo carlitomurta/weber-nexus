@@ -27,3 +27,9 @@ The runtime is responsible for background industrial execution.
 - Use a persistent queue for reads that haven't been saved yet.
 - Never block the main loop with long polling.
 - Don't mix UI rules within the runtime.
+
+## Development Guide
+
+- Follow the SOLID principles and Clean Code.
+- Always use the nestjs-best-practices skill.
+- If a refactor is requested, always keep the functionality working.
