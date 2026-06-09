@@ -28,7 +28,5 @@ resources/influxdb/*
 # Local influxdb data
 influxdb-data/
 
-# AI Tools
-.agents
-.codex
+# AI Tools temp files
 .playwright-mcp
