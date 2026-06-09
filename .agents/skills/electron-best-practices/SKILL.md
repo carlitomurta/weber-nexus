@@ -1,8 +1,8 @@
 ---
 name: electron-best-practices
-description: "Guide AI agents through Electron app development with React including security patterns, type-safe IPC, React integration, packaging with code signing, and testing. Keywords: electron, electron-vite, electron-forge, contextBridge, IPC, security, react, packaging, code signing, notarization, playwright, desktop app."
+description: "Guide AI agents through Electron app development with React including security patterns, type-safe IPC, React integration, packaging with code signing, and testing. Keywords: electron, electron-vite, electron-builder, contextBridge, IPC, security, react, packaging, code signing, notarization, playwright, desktop app."
 license: MIT
-compatibility: Requires Deno for analysis scripts. Applicable to any Electron project using TypeScript and React.
+compatibility: Requires node. Applicable to any Electron project using TypeScript and React.
 metadata:
   author: agent-skills
   version: "1.0"

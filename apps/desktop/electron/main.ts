@@ -1,10 +1,14 @@
+import { app, BrowserWindow, ipcMain } from "electron";
 import { spawn } from "node:child_process";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, ipcMain } from "electron";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Keep GPU disabled while UI is lightweight; revisit when charts/views become GPU-heavy.
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("disable-gpu");
 
 process.env.APP_ROOT = path.join(__dirname, "..");
 
@@ -18,6 +22,29 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null;
 let runtimeStarted = false;
+let ipcHandlersRegistered = false;
+
+function registerIpcHandlers() {
+  if (ipcHandlersRegistered) {
+    return;
+  }
+
+  ipcMain.handle("app:get-version", () => {
+    return app.getVersion();
+  });
+
+  ipcMain.on("update-window-title", (event, title) => {
+    if (typeof title !== "string") return;
+
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      // Truncate to 100 characters to prevent UI layout abuse
+      win.setTitle(title.substring(0, 100));
+    }
+  });
+
+  ipcHandlersRegistered = true;
+}
 
 async function ensureRuntimeProcess() {
   if (runtimeStarted || process.env.NEXUS_DISABLE_RUNTIME_SPAWN === "1") {
@@ -77,34 +104,56 @@ function isRuntimeReachable(runtimeUrl: string): Promise<boolean> {
 }
 
 function createWindow() {
-  win = new BrowserWindow({
+  registerIpcHandlers();
+
+  const mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 1024,
+    minHeight: 640,
+    show: false,
+    backgroundColor: "#15191f",
     icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
     },
   });
+  win = mainWindow;
 
-  ipcMain.handle("app:get-version", () => {
-    return app.getVersion();
+  mainWindow.once("ready-to-show", () => {
+    if (mainWindow.isDestroyed()) {
+      return;
+    }
+
+    mainWindow.maximize();
+    mainWindow.show();
   });
 
-  ipcMain.on("update-window-title", (event, title) => {
-    if (typeof title !== "string") return;
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    console.error("[Nexus Desktop] Renderer process exited", details);
+  });
 
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) {
-      // Truncate to 100 characters to prevent UI layout abuse
-      win.setTitle(title.substring(0, 100));
+  mainWindow.on("unresponsive", () => {
+    console.error("[Nexus Desktop] Window became unresponsive.");
+  });
+
+  mainWindow.on("closed", () => {
+    if (win === mainWindow) {
+      win = null;
     }
   });
 
   if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL);
+    mainWindow.loadURL(VITE_DEV_SERVER_URL);
   } else {
     // win.loadFile('dist/index.html')
-    win.loadFile(path.join(RENDERER_DIST, "index.html"));
+    mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
   }
 }
+
+app.on("child-process-gone", (_event, details) => {
+  console.error("[Nexus Desktop] Child process exited", details);
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
