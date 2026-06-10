@@ -62,6 +62,7 @@ This document defines all coding standards, patterns, and conventions for the Ne
 - Survive reboot, power outage, cable disconnection, and DXM shutdown.
 - Do not use external queuing tools; implement your own persistent queuing logic.
 - Prefer simple, explicit, and testable code.
+- All string responses, error handling and messages that will display on UI should be in Brazillian Portuguese language.
 
 ## Architecture
 

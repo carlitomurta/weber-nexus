@@ -1,14 +1,7 @@
+import { AppLogo } from "@/components/shared/AppLogo";
 import { currentUser } from "@/lib/auth";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  Activity,
-  Cog,
-  Cpu,
-  LayoutDashboard,
-  LogOut,
-  Radio,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { Activity, Cog, Cpu, LayoutDashboard, LogOut } from "lucide-react";
 
 const nav = [
   { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
@@ -18,28 +11,13 @@ const nav = [
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const [version, setVersion] = useState<string>("");
   const user = currentUser();
-  useEffect(() => {
-    (async () => {
-      const version = await window.electron.app.getVersion();
-      setVersion(version);
-    })();
-  }, []);
 
   return (
     <div className="min-h-screen flex">
       <aside className="w-60 shrink-0 border-r border-border bg-card/60 backdrop-blur flex flex-col">
-        <div className="px-5 py-5 border-b border-border flex items-center gap-2.5">
-          <div className="size-8 rounded bg-primary grid place-items-center text-primary-foreground">
-            <Radio className="size-4" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold tracking-tight">NEXUS</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Webercom Tech · v{version}
-            </div>
-          </div>
+        <div className="border-b border-border px-5 py-5">
+          <AppLogo />
         </div>
 
         <nav className="p-3 flex-1 space-y-1">
@@ -90,7 +68,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <header className="h-14 border-b border-border bg-background/70 backdrop-blur flex items-center justify-between px-6">
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
             <Activity className="size-3.5 text-warning" />
-            <span>OFFLINE · última sincronização há 20 minutos</span>
+            <span>SEM REDE · última sincronização há 20 minutos</span>
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="font-mono uppercase">{user?.name}</span>

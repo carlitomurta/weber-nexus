@@ -53,7 +53,7 @@ export function ControllerDetails({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-primary">
-              <Radio className="size-3" /> Banner {selected.model}
+              <Radio className="size-3" /> {selected.model}
             </div>
             <h2 className="mt-1 text-xl font-semibold">{selected.name}</h2>
             <div className="mt-1 flex gap-4 text-xs text-muted-foreground">
@@ -66,7 +66,9 @@ export function ControllerDetails({
             disabled={isSyncing}
             className="inline-flex h-8 items-center gap-1.5 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RefreshCw className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`}
+            />
             Sincronizar
           </button>
         </div>
@@ -94,7 +96,7 @@ export function ControllerDetails({
               <th className="px-4 py-2 text-left font-normal">Nome</th>
               <th className="px-4 py-2 text-left font-normal">Modelo</th>
               <th className="px-4 py-2 text-left font-normal">Localização</th>
-              <th className="px-4 py-2 text-left font-normal">Node</th>
+              <th className="px-4 py-2 text-left font-normal">ID do sensor</th>
               <th className="px-4 py-2 text-left font-normal">Registros</th>
               <th className="px-4 py-2 text-right font-normal"></th>
             </tr>
@@ -152,7 +154,7 @@ function SensorRow({ sensor, onDeleteSensor, onEditSensor }: SensorRowProps) {
               >
                 {normalizedRegister.name}@{normalizedRegister.address}{" "}
                 {normalizedRegister.isHealthCheck
-                  ? "health"
+                  ? "status"
                   : formatRegisterScale(normalizedRegister)}
               </span>
             );
@@ -190,9 +192,7 @@ function SensorRow({ sensor, onDeleteSensor, onEditSensor }: SensorRowProps) {
 function formatRegisterScale(register: Sensor["registers"][number]): string {
   const scale =
     register.scaleType && register.scaleFactor
-      ? `${register.scaleType === "divide" ? "/" : "x"}${
-          register.scaleFactor
-        } `
+      ? `${register.scaleType === "divide" ? "/" : "x"}${register.scaleFactor} `
       : "";
 
   return `${scale}${register.unit}`;

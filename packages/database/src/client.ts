@@ -41,7 +41,7 @@ export function createDatabase(dbPath: string): Database {
 
 export function getDatabase(): Database {
   if (!database) {
-    throw new Error("Database not initialized");
+    throw new Error("Banco de dados não inicializado");
   }
 
   return database;

@@ -28,7 +28,7 @@ export class InfluxdbTelemetryRepository {
       if (response.status !== 204) {
         const responseText = await response.text();
         throw new Error(
-          `InfluxDB write failed with status ${response.status}: ${responseText}`,
+          `Escrita no InfluxDB falhou com status ${response.status}: ${responseText}`,
         );
       }
     } finally {
@@ -62,7 +62,7 @@ export class InfluxdbTelemetryRepository {
       if (response.status !== 200) {
         const responseText = await response.text();
         throw new Error(
-          `InfluxDB query failed with status ${response.status}: ${responseText}`,
+          `Consulta ao InfluxDB falhou com status ${response.status}: ${responseText}`,
         );
       }
 

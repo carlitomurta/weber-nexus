@@ -1,5 +1,5 @@
-import { XMLValidator } from 'fast-xml-parser';
 import type { NewSensor } from '@weber-nexus/repository';
+import { XMLValidator } from 'fast-xml-parser';
 import {
   buildWlConfigXml,
   cleanWlConfigXml,
@@ -55,7 +55,7 @@ describe('WLConfig XML helpers', () => {
 
   it('rejects invalid XML before parsing', () => {
     expect(() => parseWlConfigXml('<configuration>')).toThrow(
-      'Invalid WLConfig.xml',
+      'WLConfig.xml inválido',
     );
   });
 

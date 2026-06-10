@@ -15,6 +15,7 @@ import {
   useSensors,
   useUpdateSensor,
 } from "@/hooks/useSensors";
+import { apiErrorMessage } from "@/lib/api";
 
 import type {
   Controller,
@@ -25,12 +26,12 @@ import {
   buildSensorPayload,
   normalizeSensorRegister,
 } from "./sensor-registers";
-import { emptyController, emptySensor } from "./settingsDefaults";
 import {
   type DeleteConfirmation,
   type ResetConfirmation,
   type SensorDraft,
 } from "./settings.type";
+import { emptyController, emptySensor } from "./settingsDefaults";
 
 const emptyControllers: Controller[] = [];
 const emptySensors: Sensor[] = [];
@@ -82,8 +83,6 @@ export function useSettingsPage() {
   const isSensorDialogOpen = showNewSensor || editingSensorId !== null;
   const isLoading = controllersQuery.isLoading || sensorsQuery.isLoading;
   const isError = controllersQuery.isError || sensorsQuery.isError;
-  const isStale = controllersQuery.isStale || sensorsQuery.isStale;
-  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
   useEffect(() => {
     if (selectedId === null && controllers.length > 0) {
@@ -103,7 +102,7 @@ export function useSettingsPage() {
     }
 
     if (!isValidPollingInterval(controllerDraft.pollingIntervalMs)) {
-      toast.error("Informe um intervalo de polling válido.");
+      toast.error("Informe um intervalo de coleta válido.");
       return;
     }
 
@@ -118,8 +117,13 @@ export function useSettingsPage() {
       },
       {
         onSuccess: () => toast.success("Controlador criado e XML importado."),
-        onError: () =>
-          toast.error("Não foi possível importar o XML do controlador."),
+        onError: (error) =>
+          toast.error(
+            apiErrorMessage(
+              error,
+              "Não foi possível importar o XML do controlador.",
+            ),
+          ),
       },
     );
   }
@@ -156,7 +160,10 @@ export function useSettingsPage() {
         setShowNewSensor(false);
         toast.success("Sensor adicionado.");
       },
-      onError: () => toast.error("Não foi possível adicionar o sensor."),
+      onError: (error) =>
+        toast.error(
+          apiErrorMessage(error, "Não foi possível adicionar o sensor."),
+        ),
     });
   }
 
@@ -195,7 +202,10 @@ export function useSettingsPage() {
         setSensorDraft(emptySensor);
         toast.success("Sensor atualizado.");
       },
-      onError: () => toast.error("Não foi possível atualizar o sensor."),
+      onError: (error) =>
+        toast.error(
+          apiErrorMessage(error, "Não foi possível atualizar o sensor."),
+        ),
     });
   }
 
@@ -208,7 +218,10 @@ export function useSettingsPage() {
         }
         toast.success("Sensor removido.");
       },
-      onError: () => toast.error("Não foi possível remover o sensor."),
+      onError: (error) =>
+        toast.error(
+          apiErrorMessage(error, "Não foi possível remover o sensor."),
+        ),
     });
   }
 
@@ -241,7 +254,7 @@ export function useSettingsPage() {
     }
 
     if (!isValidPollingInterval(patch.pollingIntervalMs)) {
-      toast.error("Informe um intervalo de polling válido.");
+      toast.error("Informe um intervalo de coleta válido.");
       return;
     }
 
@@ -264,8 +277,13 @@ export function useSettingsPage() {
               setEditingControllerId(null);
               toast.success("Controlador atualizado.");
             },
-            onError: () =>
-              toast.error("Não foi possível atualizar o controlador."),
+            onError: (error) =>
+              toast.error(
+                apiErrorMessage(
+                  error,
+                  "Não foi possível atualizar o controlador.",
+                ),
+              ),
           },
         ),
     });
@@ -302,7 +320,10 @@ export function useSettingsPage() {
           `XML sincronizado. ${result.sensorsImported} sensores importados.`,
         );
       },
-      onError: () => toast.error("Não foi possível sincronizar o XML."),
+      onError: (error) =>
+        toast.error(
+          apiErrorMessage(error, "Não foi possível sincronizar o XML."),
+        ),
     });
   }
 
@@ -322,8 +343,6 @@ export function useSettingsPage() {
     isSensorDialogOpen,
     isError,
     isLoading,
-    isOffline,
-    isStale,
     isSyncingControllerXml,
     resetConfirm,
     selected,

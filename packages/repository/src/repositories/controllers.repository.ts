@@ -8,9 +8,9 @@ import type { NewSensor } from "./sensors.repository.js";
 export type Controller = typeof controllers.$inferSelect;
 export type NewController = typeof controllers.$inferInsert;
 export type ControllerXmlSyncMetadata = {
-  xmlConfig: string;
-  xmlConfigChecksum: string;
-  xmlLastSyncedAt: Date;
+  xmlConfig: string | null;
+  xmlConfigChecksum: string | null;
+  xmlLastSyncedAt: Date | null;
 };
 export type ControllerWrite = Omit<
   Controller,
@@ -85,6 +85,47 @@ export class ControllersRepository {
       .where(eq(controllers.id, id))
       .returning();
     return newController;
+  }
+
+  async updateControllerWithSensors(
+    controller: ControllerWrite,
+    nextSensors: ImportedSensor[],
+  ): Promise<Controller> {
+    return this.db.transaction((tx) => {
+      const { id, ...controllerData } = controller;
+      const updatedController = tx
+        .update(controllers)
+        .set({ ...controllerData, updatedAt: new Date() })
+        .where(eq(controllers.id, id))
+        .returning()
+        .get();
+
+      if (!updatedController) {
+        throw new Error(`Controller ${id} was not found`);
+      }
+
+      tx.update(sensors)
+        .set({
+          deletedAt: new Date(),
+          operationalStatus: "removed",
+          updatedAt: new Date(),
+        })
+        .where(eq(sensors.controllerId, updatedController.id))
+        .run();
+
+      if (nextSensors.length > 0) {
+        tx.insert(sensors)
+          .values(
+            nextSensors.map((sensor) => ({
+              ...sensor,
+              controllerId: updatedController.id,
+            })),
+          )
+          .run();
+      }
+
+      return updatedController;
+    });
   }
 
   async deleteController(

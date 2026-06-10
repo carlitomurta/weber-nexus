@@ -59,7 +59,7 @@ export function EditControllerDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Editar controlador</AlertDialogTitle>
           <AlertDialogDescription>
-            Atualize as informações do controlador Banner DXM.
+            Atualize as informações do controlador.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-3">
@@ -103,7 +103,7 @@ export function EditControllerDialog({
               onChange={(e) => setDraft({ ...draft, site: e.target.value })}
             />
           </Field>
-          <Field label="Intervalo de polling (ms)">
+          <Field label="Intervalo de coleta (ms)">
             <input
               type="number"
               min={1000}

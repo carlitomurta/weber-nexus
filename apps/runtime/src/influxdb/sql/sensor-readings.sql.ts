@@ -12,6 +12,10 @@ export type SensorReadingsQuery = {
   registers: ReadingRegister[];
 };
 
+type ReadingRegisterBatchOptions = {
+  includeHealth?: boolean;
+};
+
 export const SENSOR_READINGS_SELECT_COLUMNS = [
   'time',
   'controller_id',
@@ -48,10 +52,11 @@ export function buildSensorReadingsSql(query: SensorReadingsQuery): string {
 export function buildReadingRegisterBatches(
   sensors: Sensor[],
   batchSize: number,
+  options: ReadingRegisterBatchOptions = {},
 ): ReadingRegister[][] {
   const registers = sensors.flatMap((sensor) =>
     sensor.registers
-      .filter((register) => !register.isHealthCheck)
+      .filter((register) => options.includeHealth || !register.isHealthCheck)
       .map((register) => ({
         controllerId: sensor.controllerId,
         sensorId: sensor.id,

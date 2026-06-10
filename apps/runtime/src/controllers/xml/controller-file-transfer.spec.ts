@@ -1,5 +1,6 @@
 import {
   chunkBuffer,
+  createWlConfigUploadPlan,
   encodeXmlForController,
   formatModbusCrc16,
 } from './controller-file-transfer';
@@ -19,6 +20,17 @@ describe('controller file transfer helpers', () => {
       'cd',
       'ef',
     ]);
+  });
+
+  it('declares the exact encoded XML byte size and chunk totals', () => {
+    const plan = createWlConfigUploadPlan('á\r\n'.repeat(260));
+
+    expect(plan.fileSizeBytes).toBe(
+      Buffer.byteLength('á\r\n'.repeat(260), 'utf8'),
+    );
+    expect(plan.totalChunkBytes).toBe(plan.fileSizeBytes);
+    expect(plan.chunkSizes.every((size) => size <= 512)).toBe(true);
+    expect(plan.chunkSizes).toEqual([512, 512, 16]);
   });
 
   it('calculates Modbus CRC16 as uppercase hex', () => {

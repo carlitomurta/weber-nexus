@@ -13,6 +13,7 @@
     artifactName: "${productName}-Mac-${version}-Installer.${ext}",
   },
   win: {
+    icon: "build/icon.png",
     target: [
       {
         target: "nsis",
@@ -29,6 +30,7 @@
     ],
   },
   linux: {
+    icon: "build/icons",
     target: ["AppImage", "deb"],
     category: "Utility",
     artifactName: "${productName}-linux-${version}.${ext}",

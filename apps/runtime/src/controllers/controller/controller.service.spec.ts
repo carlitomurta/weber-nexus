@@ -40,6 +40,7 @@ describe('ControllersService XML sync behavior', () => {
     findById: jest.Mock;
     insertControllerWithSensors: jest.Mock;
     updateController: jest.Mock;
+    updateControllerWithSensors: jest.Mock;
     deleteController: jest.Mock;
   };
   let sensorsRepository: {
@@ -64,6 +65,7 @@ describe('ControllersService XML sync behavior', () => {
       findById: jest.fn().mockResolvedValue(controller),
       insertControllerWithSensors: jest.fn().mockResolvedValue(controller),
       updateController: jest.fn().mockResolvedValue(controller),
+      updateControllerWithSensors: jest.fn().mockResolvedValue(controller),
       deleteController: jest.fn(),
     };
     sensorsRepository = {
@@ -110,15 +112,17 @@ describe('ControllersService XML sync behavior', () => {
 
     await service.postController(input);
 
-    expect(controllerXmlConfigService.downloadControllerConfig).toHaveBeenCalledWith(
-      '192.168.1.10',
-    );
-    expect(controllersRepository.insertControllerWithSensors).toHaveBeenCalled();
+    expect(
+      controllerXmlConfigService.downloadControllerConfig,
+    ).toHaveBeenCalledWith('192.168.1.10');
+    expect(
+      controllersRepository.insertControllerWithSensors,
+    ).toHaveBeenCalled();
   });
 
   it('rejects controller creation when XML download fails', async () => {
     controllerXmlConfigService.downloadControllerConfig.mockRejectedValue(
-      new Error('offline'),
+      new Error('Sem rede'),
     );
 
     await expect(
@@ -127,22 +131,53 @@ describe('ControllersService XML sync behavior', () => {
         model: 'DXM1200',
         ipAddress: '192.168.1.10',
       }),
-    ).rejects.toThrow('offline');
-    expect(controllersRepository.insertControllerWithSensors).not.toHaveBeenCalled();
+    ).rejects.toThrow('Sem rede');
+    expect(
+      controllersRepository.insertControllerWithSensors,
+    ).not.toHaveBeenCalled();
   });
 
-  it('uploads XML before updating a controller', async () => {
+  it('updates a controller without XML sync when IP is unchanged', async () => {
     await service.updateController({
       ...controller,
       name: 'DXM Norte',
     });
 
-    expect(controllerXmlConfigService.uploadControllerConfig).toHaveBeenCalled();
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
+    expect(
+      controllerXmlConfigService.downloadControllerConfig,
+    ).not.toHaveBeenCalled();
     expect(controllersRepository.updateController).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'DXM Norte',
+        ipAddress: '192.168.1.10',
+      }),
+    );
+  });
+
+  it('pulls fresh XML and replaces sensors when controller IP changes', async () => {
+    await service.updateController({
+      ...controller,
+      ipAddress: '192.168.1.11',
+    });
+
+    expect(
+      controllerXmlConfigService.downloadControllerConfig,
+    ).toHaveBeenCalledWith('192.168.1.11');
+    expect(
+      controllersRepository.updateControllerWithSensors,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ipAddress: '192.168.1.11',
         xmlConfigChecksum: 'checksum',
       }),
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Imported',
+        }),
+      ]),
     );
   });
 

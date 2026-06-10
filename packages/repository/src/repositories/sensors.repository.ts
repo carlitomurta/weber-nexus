@@ -128,9 +128,9 @@ export class SensorsRepository {
     controllerId: number,
     nextSensors: NewSensor[],
     xmlMetadata: {
-      xmlConfig: string;
-      xmlConfigChecksum: string;
-      xmlLastSyncedAt: Date;
+      xmlConfig: string | null;
+      xmlConfigChecksum: string | null;
+      xmlLastSyncedAt: Date | null;
     },
   ): Promise<void> {
     await this.db.transaction((tx) => {

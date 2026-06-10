@@ -13,7 +13,7 @@ export function buildSensorPayload(
   }
 
   if (!Number.isInteger(draft.nodeId) || draft.nodeId <= 0) {
-    return { error: "Informe um Node ID válido." };
+    return { error: "Informe um ID do sensor válido." };
   }
 
   if (draft.registers.length === 0) {
@@ -34,7 +34,7 @@ export function buildSensorPayload(
 
   if (invalidRegister) {
     return {
-      error: `Registros do Node ${draft.nodeId} devem ficar entre ${firstAddress} e ${lastAddress}.`,
+      error: `Registros do sensor ${draft.nodeId} devem ficar entre ${firstAddress} e ${lastAddress}.`,
     };
   }
 

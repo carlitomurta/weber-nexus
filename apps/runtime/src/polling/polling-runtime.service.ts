@@ -34,13 +34,13 @@ export class PollingRuntimeService
     },
     onConnection: (controller) => {
       this.logger.info(
-        `Connected to controller ${controller.id} (${controller.name}) at ${controller.ipAddress}:502 via Modbus TCP`,
+        `Controlador ${controller.id} (${controller.name}) conectado em ${controller.ipAddress}:502 via Modbus TCP`,
       );
     },
     onData: (result) => this.handlePollingResult(result),
     onError: (error, controller) => {
       this.logger.error(
-        `Polling failed for controller ID ${controller.id} (${controller.name}) IP ${controller.ipAddress}`,
+        `Falha na coleta do controlador ID ${controller.id} (${controller.name}) IP ${controller.ipAddress}`,
         error,
       );
     },
@@ -56,7 +56,7 @@ export class PollingRuntimeService
     const controllers = await this.controllersRepository.findAll();
 
     this.logger.info(
-      `Polling engine initialized for ${controllers.length} controller(s)`,
+      `Motor de coleta iniciado para ${controllers.length} controlador(es)`,
     );
 
     for (const controller of controllers) {
@@ -79,7 +79,7 @@ export class PollingRuntimeService
 
       if (!controller) {
         this.logger.warn(
-          `Controller ${controllerId} was not found for polling`,
+          `Controlador ${controllerId} não encontrado para coleta`,
         );
         this.pollingEngine.stopController(controllerId);
         return;
@@ -92,7 +92,7 @@ export class PollingRuntimeService
       this.startControllerPolling(controller, sensors);
     } catch (error) {
       this.logger.error(
-        `Failed to refresh polling for controller ${controllerId}`,
+        `Falha ao atualizar coleta do controlador ${controllerId}`,
         error,
       );
     }
@@ -104,7 +104,7 @@ export class PollingRuntimeService
   ): void {
     if (sensors.length === 0) {
       this.logger.warn(
-        `Controller ${controller.id} (${controller.name}) has no sensors to poll`,
+        `Controlador ${controller.id} (${controller.name}) não possui sensores para coleta`,
       );
       return;
     }
@@ -115,7 +115,7 @@ export class PollingRuntimeService
     );
 
     this.logger.info(
-      `Started polling controller ${controller.id} (${controller.name}) every ${controller.pollingIntervalMs}ms`,
+      `Coleta iniciada para controlador ${controller.id} (${controller.name}) a cada ${controller.pollingIntervalMs}ms`,
     );
   }
 
@@ -135,7 +135,7 @@ export class PollingRuntimeService
     }));
 
     this.logger.info(
-      `[PULLED]: ${result.polledAt.toLocaleTimeString()}`,
+      `[COLETADO]: ${result.polledAt.toLocaleTimeString()}`,
       readings.map((r) =>
         r.registers
           .map(

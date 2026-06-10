@@ -40,7 +40,7 @@ export class InfluxdbRuntimeService
   onApplicationShutdown() {
     if (!this.child) return;
 
-    this.logger.info('Stopping managed InfluxDB process...');
+    this.logger.info('Parando processo gerenciado do InfluxDB...');
     this.child.kill();
     this.child = undefined;
   }
@@ -53,7 +53,7 @@ export class InfluxdbRuntimeService
     if (this.runtimeEnv.isInfluxdbDisabled()) {
       this.status = 'disabled';
       this.logger.warn(
-        'InfluxDB startup is disabled by NEXUS_DISABLE_INFLUXDB.',
+        'Inicialização do InfluxDB está desativada por NEXUS_DISABLE_INFLUXDB.',
       );
       return this.status;
     }
@@ -64,23 +64,25 @@ export class InfluxdbRuntimeService
     if (await this.isInfluxdbReachable(url, token)) {
       await this.ensureConfiguredDatabase(url);
       this.status = 'external';
-      this.logger.info(`InfluxDB is already running at ${url}.`);
+      this.logger.info(`InfluxDB já está em execução em ${url}.`);
       return this.status;
     }
 
     const binaryPath = this.resolveBinaryPath();
     if (!binaryPath) {
       this.status = 'unavailable';
-      this.logger.error('InfluxDB binary was not found.');
+      this.logger.error('Binário do InfluxDB não foi encontrado.');
       return this.status;
     }
 
     const dataDir = await this.resolveDataDir();
     const adminTokenFile = await this.ensureAdminTokenFile(dataDir);
 
-    this.logger.info(`Starting InfluxDB from ${binaryPath}.`);
-    this.logger.info(`InfluxDB data directory: ${dataDir}`);
-    this.logger.info(`InfluxDB admin token file: ${adminTokenFile}`);
+    this.logger.info(`Iniciando InfluxDB a partir de ${binaryPath}.`);
+    this.logger.info(`Diretório de dados do InfluxDB: ${dataDir}`);
+    this.logger.info(
+      `Arquivo de token administrativo do InfluxDB: ${adminTokenFile}`,
+    );
 
     this.child = spawn(
       binaryPath,
@@ -114,7 +116,7 @@ export class InfluxdbRuntimeService
 
     this.child.on('error', (error) => {
       this.status = 'unavailable';
-      this.logger.error('InfluxDB process failed to start.', error);
+      this.logger.error('Processo do InfluxDB falhou ao iniciar.', error);
     });
 
     const managedChild = this.child;
@@ -126,8 +128,8 @@ export class InfluxdbRuntimeService
       }
 
       this.logger.warn(
-        `InfluxDB process exited with code ${code ?? 'unknown'} and signal ${
-          signal ?? 'none'
+        `Processo do InfluxDB encerrou com código ${code ?? 'desconhecido'} e sinal ${
+          signal ?? 'nenhum'
         }.`,
       );
     });
@@ -172,7 +174,7 @@ export class InfluxdbRuntimeService
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
 
-    throw new Error(`InfluxDB did not become reachable at ${url}.`);
+    throw new Error(`InfluxDB não ficou acessível em ${url}.`);
   }
 
   private async resolveAuthToken(): Promise<string> {
@@ -196,18 +198,18 @@ export class InfluxdbRuntimeService
     );
 
     if (response.ok) {
-      this.logger.info(`InfluxDB database is ready: ${config.bucket}`);
+      this.logger.info(`Banco do InfluxDB está pronto: ${config.bucket}`);
       return;
     }
 
     const responseText = await response.text();
     if (responseText.toLowerCase().includes('already exists')) {
-      this.logger.info(`InfluxDB database already exists: ${config.bucket}`);
+      this.logger.info(`Banco do InfluxDB já existe: ${config.bucket}`);
       return;
     }
 
     throw new Error(
-      `InfluxDB database setup failed with status ${response.status}: ${responseText}`,
+      `Configuração do banco do InfluxDB falhou com status ${response.status}: ${responseText}`,
     );
   }
 
@@ -345,13 +347,15 @@ export class InfluxdbRuntimeService
         return await this.ensureDataDir(candidate);
       } catch (error) {
         this.logger.warn(
-          `InfluxDB data directory is not writable: ${candidate}`,
+          `Diretório de dados do InfluxDB não tem permissão de escrita: ${candidate}`,
           error,
         );
       }
     }
 
-    throw new Error('No writable InfluxDB data directory was found.');
+    throw new Error(
+      'Nenhum diretório de dados gravável do InfluxDB foi encontrado.',
+    );
   }
 
   private resolveLinuxAppInstallDir(): string | undefined {
@@ -384,7 +388,7 @@ export class InfluxdbRuntimeService
       {
         token,
         name: 'nexus-admin',
-        description: 'Local Weber Nexus admin token',
+        description: 'Token administrativo local do Weber Nexus',
       },
       null,
       2,

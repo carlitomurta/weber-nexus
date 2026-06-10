@@ -68,7 +68,9 @@ describe('SensorsService XML upload gate', () => {
     };
     pollingRuntimeService = { refreshController: jest.fn() };
     controllerXmlConfigService = {
-      uploadControllerConfig: jest.fn().mockRejectedValue(new Error('upload failed')),
+      uploadControllerConfig: jest
+        .fn()
+        .mockRejectedValue(new Error('Falha no envio')),
     };
     service = new SensorsService(
       controllersRepository as never,
@@ -97,7 +99,7 @@ describe('SensorsService XML upload gate', () => {
       deletedAt: null,
     };
 
-    await expect(service.postSensor(sensor)).rejects.toThrow('upload failed');
+    await expect(service.postSensor(sensor)).rejects.toThrow('Falha no envio');
     expect(sensorsRepository.insertSensor).not.toHaveBeenCalled();
   });
 });

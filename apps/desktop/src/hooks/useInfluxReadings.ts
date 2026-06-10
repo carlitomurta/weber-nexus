@@ -6,24 +6,45 @@ import type { InfluxSensorReading } from "../../types/influxdb.type";
 
 const DEFAULT_REFETCH_INTERVAL_MS = 300000;
 
-export type InfluxReadingsRange = "2y" | "6m" | "1w";
+export type InfluxReadingsRange = "2y" | "1y" | "6m" | "1w";
+
+type UseInfluxReadingsOptions = {
+  includeHealth?: boolean;
+};
 
 export function useInfluxReadings(
-  controllers: Controller[],
+  controller: Controller | null,
   range: InfluxReadingsRange,
+  options: UseInfluxReadingsOptions = {},
 ) {
+  const includeHealth = options.includeHealth === true;
+
   return useQuery({
-    queryKey: ["influxdb", "readings", range],
+    queryKey: [
+      "influxdb",
+      "readings",
+      controller?.id ?? null,
+      range,
+      includeHealth,
+    ],
     queryFn: async () => {
       const { data } = await api.get<InfluxSensorReading[]>(
         "/influxdb/readings",
-        { params: { range } },
+        {
+          params: {
+            range,
+            controllerId: controller?.id,
+            includeHealth: includeHealth || undefined,
+          },
+        },
       );
 
       return data;
     },
-    enabled: controllers.length > 0,
-    refetchInterval: pollingRefetchInterval(controllers),
+    enabled: controller !== null,
+    refetchInterval: controller
+      ? pollingRefetchInterval([controller])
+      : DEFAULT_REFETCH_INTERVAL_MS,
   });
 }
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, ParseIntPipe, Query } from '@nestjs/common';
 import {
   InfluxdbTelemetryService,
   type InfluxReadingsRange,
@@ -12,7 +12,14 @@ export class InfluxdbController {
   @Get('readings')
   findRecentReadings(
     @Query('range', InfluxReadingsRangePipe) range: InfluxReadingsRange,
+    @Query('controllerId', new ParseIntPipe({ optional: true }))
+    controllerId?: number,
+    @Query('includeHealth') includeHealth?: string,
   ) {
-    return this.telemetryService.findRecentReadings(range);
+    return this.telemetryService.findRecentReadings(
+      range,
+      controllerId,
+      includeHealth === 'true',
+    );
   }
 }

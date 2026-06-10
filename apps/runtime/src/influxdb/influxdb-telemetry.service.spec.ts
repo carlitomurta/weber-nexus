@@ -34,7 +34,7 @@ describe('InfluxdbTelemetryService', () => {
     markAttempt: jest.Mock;
     delete: jest.Mock;
   };
-  let sensorsRepository: { findAll: jest.Mock };
+  let sensorsRepository: { findAll: jest.Mock; findByControllerId: jest.Mock };
   let telemetryRepository: InfluxdbTelemetryRepository;
   let service: InfluxdbTelemetryService;
 
@@ -59,7 +59,22 @@ describe('InfluxdbTelemetryService', () => {
           controllerId: 1,
           nodeId: 3,
           name: 'Bomba 01',
-          registers: [{ name: 'Vibração', address: 49, unit: 'mm/s' }],
+          registers: [
+            { name: 'Status', address: 48, isHealthCheck: true },
+            { name: 'Vibração', address: 49, unit: 'mm/s' },
+          ],
+        },
+      ]),
+      findByControllerId: jest.fn().mockResolvedValue([
+        {
+          id: 8,
+          controllerId: 2,
+          nodeId: 4,
+          name: 'Bomba 02',
+          registers: [
+            { name: 'Status', address: 64, isHealthCheck: true },
+            { name: 'Vibração', address: 65, unit: 'mm/s' },
+          ],
         },
       ]),
     };
@@ -107,7 +122,7 @@ describe('InfluxdbTelemetryService', () => {
 
     expect(queueRepository.enqueue).toHaveBeenCalledWith(
       expect.stringContaining('sensor_readings'),
-      'InfluxDB write failed with status 500: nope',
+      'Escrita no InfluxDB falhou com status 500: nope',
     );
   });
 
@@ -220,6 +235,68 @@ describe('InfluxdbTelemetryService', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(readings).toHaveLength(210);
+  });
+
+  it('filters recent readings by controller when controllerId is provided', async () => {
+    fetchMock.mockResolvedValue(response(200));
+
+    await service.findRecentReadings('6m', 2);
+
+    expect(sensorsRepository.findByControllerId).toHaveBeenCalledWith(2);
+    expect(sensorsRepository.findAll).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8181/api/v3/query_sql',
+      expect.objectContaining({
+        body: expect.stringContaining(
+          "controller_id = '2' AND sensor_id = '8' AND register_address = '65'",
+        ),
+      }),
+    );
+  });
+
+  it('excludes health readings unless requested', async () => {
+    fetchMock.mockResolvedValue(response(200));
+
+    await service.findRecentReadings();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8181/api/v3/query_sql',
+      expect.objectContaining({
+        body: expect.not.stringContaining(
+          "controller_id = '1' AND sensor_id = '7' AND register_address = '48'",
+        ),
+      }),
+    );
+  });
+
+  it('includes health readings when requested', async () => {
+    fetchMock.mockResolvedValue(response(200));
+
+    await service.findRecentReadings('6m', 2, true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8181/api/v3/query_sql',
+      expect.objectContaining({
+        body: expect.stringContaining(
+          "controller_id = '2' AND sensor_id = '8' AND register_address = '64'",
+        ),
+      }),
+    );
+  });
+
+  it('queries one year of readings for the 1y range', async () => {
+    fetchMock.mockResolvedValue(response(200));
+
+    await service.findRecentReadings('1y');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8181/api/v3/query_sql',
+      expect.objectContaining({
+        body: expect.stringContaining(
+          "WHERE time >= '2025-06-07T12:00:00.000Z' AND time < '2026-06-07T12:00:00.000Z'",
+        ),
+      }),
+    );
   });
 
   it('uses the default InfluxDB config for recent reading queries', async () => {

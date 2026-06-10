@@ -2,14 +2,15 @@ import { type ComponentType, type FormEvent, useState } from "react";
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { isAxiosError } from "axios";
-import { Lock, Mail, Radio } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
 import { z } from "zod";
 
+import { AppLogo } from "@/components/shared/AppLogo";
 import { useLogin } from "@/hooks/useLogin";
 import { login } from "@/lib/auth";
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(1),
 });
 
@@ -43,7 +44,7 @@ function LoginPage() {
     });
 
     if (!credentials.success) {
-      setValidationError("Informe email e senha válidos.");
+      setValidationError("Informe e-mail e senha válidos.");
       return;
     }
 
@@ -64,17 +65,7 @@ function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-0 border border-border rounded-lg overflow-hidden bg-card/70 backdrop-blur shadow-2xl">
         <div className="p-10 border-r border-border bg-background/40 hidden lg:flex flex-col justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="size-9 rounded bg-primary grid place-items-center text-primary-foreground">
-              <Radio className="size-4" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold tracking-tight">NEXUS</div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Webercom tecnologia
-              </div>
-            </div>
-          </div>
+          <AppLogo />
 
           <div className="space-y-4">
             <h1 className="text-3xl font-semibold leading-tight">
@@ -83,8 +74,8 @@ function LoginPage() {
               <span className="text-primary">de ponta.</span>
             </h1>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Análise offline para fluxos de trabalho industriais. Transmicao de
-              dados em tempo real, insights preditivos e controle local para
+              Análise offline para fluxos de trabalho industriais. Transmissão
+              de dados em tempo real, insights preditivos e controle local para
               ambientes desconectados.
             </p>
           </div>
@@ -94,14 +85,12 @@ function LoginPage() {
               <span className="size-1.5 rounded-full bg-success animate-pulse" />
               Planta: AMBEV-01
             </div>
-            <div className="flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-success" />4
-              controladores · 11 sensores
-            </div>
           </div>
         </div>
 
         <form onSubmit={onSubmit} className="p-10 space-y-5">
+          <AppLogo className="lg:hidden" />
+
           <div className="space-y-1">
             <div className="text-[11px] font-mono tracking-[0.2em] text-primary uppercase">
               Autenticação
@@ -117,7 +106,7 @@ function LoginPage() {
 
           <Field
             icon={Mail}
-            label="Email"
+            label="E-mail"
             name="email"
             defaultValue="admin@admin.com"
           />
@@ -191,7 +180,7 @@ function getLoginErrorMessage(error: unknown) {
   }
 
   if (isAxiosError(error) && error.response?.status === 401) {
-    return "Email ou senha inválidos.";
+    return "E-mail ou senha inválidos.";
   }
 
   return "Não foi possível conectar ao runtime.";

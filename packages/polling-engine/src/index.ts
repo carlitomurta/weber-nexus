@@ -150,7 +150,7 @@ export class PollingEngine {
 
       if (rawValue === undefined) {
         throw new Error(
-          `Missing value for controller ${job.controller.id} register ${entry.register.address}`,
+          `Valor ausente no controlador ${job.controller.id}, registro ${entry.register.address}`,
         );
       }
 
@@ -179,7 +179,7 @@ export class PollingEngine {
 
           if (!reading) {
             throw new Error(
-              `Missing mapped value for sensor ${sensor.id} register ${register.address}`,
+              `Valor mapeado ausente no sensor ${sensor.id}, registro ${register.address}`,
             );
           }
 
@@ -247,7 +247,7 @@ function createControllerRegisterPlan(
 
   if (duplicateAddresses.length > 0) {
     throw new Error(
-      `Duplicate holding register address configuration: ${duplicateAddresses.join(", ")}`,
+      `Configuração duplicada de endereço de registrador holding: ${duplicateAddresses.join(", ")}`,
     );
   }
 

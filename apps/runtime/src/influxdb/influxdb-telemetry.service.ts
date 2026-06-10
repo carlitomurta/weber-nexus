@@ -20,7 +20,7 @@ const QUEUE_DRAIN_LIMIT = 25;
 const INFLUX_QUERY_RESULT_CAP = 300;
 const QUERY_REGISTER_BATCH_SIZE = 25;
 
-export type InfluxReadingsRange = '2y' | '6m' | '1w';
+export type InfluxReadingsRange = '2y' | '1y' | '6m' | '1w';
 
 @Injectable()
 export class InfluxdbTelemetryService {
@@ -47,19 +47,24 @@ export class InfluxdbTelemetryService {
       const message = errorMessage(error);
 
       await this.influxWriteQueueRepository.enqueue(lineProtocol, message);
-      this.logger.error('Failed to write telemetry to InfluxDB.', error);
+      this.logger.error('Falha ao gravar telemetria no InfluxDB.', error);
     }
   }
 
   async findRecentReadings(
     range: InfluxReadingsRange = '6m',
+    controllerId?: number,
+    includeHealth = false,
   ): Promise<InfluxSensorReading[]> {
     const config = await this.influxConfigsRepository.ensureDefault();
     const end = new Date();
     const start = startDateForRange(range, end);
     const batches = buildReadingRegisterBatches(
-      await this.sensorsRepository.findAll(),
+      controllerId === undefined
+        ? await this.sensorsRepository.findAll()
+        : await this.sensorsRepository.findByControllerId(controllerId),
       QUERY_REGISTER_BATCH_SIZE,
+      { includeHealth },
     );
 
     if (batches.length === 0) {
@@ -67,7 +72,7 @@ export class InfluxdbTelemetryService {
     }
 
     this.logger.info(
-      `Querying InfluxDB readings range=${range} batches=${batches.length} format=jsonl`,
+      `Querying InfluxDB readings range=${range} controllerId=${controllerId ?? 'all'} batches=${batches.length} format=jsonl`,
     );
 
     const readings: InfluxSensorReading[] = [];
@@ -100,7 +105,7 @@ export class InfluxdbTelemetryService {
           errorMessage(error),
         );
         this.logger.warn(
-          `Queued InfluxDB telemetry batch ${item.id} was not written.`,
+          `Lote de telemetria em fila ${item.id} não foi gravado no InfluxDB.`,
           error,
         );
         return;
@@ -136,7 +141,9 @@ export class InfluxdbTelemetryService {
       const nextCursor = cursorAfter(page);
 
       if (!nextCursor || nextCursor <= cursor) {
-        this.logger.warn('InfluxDB reading query pagination stalled.');
+        this.logger.warn(
+          'Paginação da consulta de leituras do InfluxDB travou.',
+        );
         return readings;
       }
 
@@ -152,6 +159,11 @@ function startDateForRange(range: InfluxReadingsRange, end: Date): Date {
 
   if (range === '2y') {
     start.setUTCFullYear(start.getUTCFullYear() - 2);
+    return start;
+  }
+
+  if (range === '1y') {
+    start.setUTCFullYear(start.getUTCFullYear() - 1);
     return start;
   }
 

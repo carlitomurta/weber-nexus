@@ -4,7 +4,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 export class RuntimeControlService {
   stop(remoteAddress?: string): { stopping: true } {
     if (!isLocalRequest(remoteAddress)) {
-      throw new ForbiddenException('Runtime can only be stopped locally');
+      throw new ForbiddenException('Runtime só pode ser parado localmente');
     }
 
     setTimeout(() => {

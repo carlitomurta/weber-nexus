@@ -2,7 +2,7 @@ import { Injectable, type PipeTransform } from '@nestjs/common';
 import type { InfluxReadingsRange } from '../influxdb-telemetry.service';
 
 const DEFAULT_READINGS_RANGE: InfluxReadingsRange = '6m';
-const READINGS_RANGES = new Set<InfluxReadingsRange>(['2y', '6m', '1w']);
+const READINGS_RANGES = new Set<InfluxReadingsRange>(['2y', '1y', '6m', '1w']);
 
 @Injectable()
 export class InfluxReadingsRangePipe implements PipeTransform<

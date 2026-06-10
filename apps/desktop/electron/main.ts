@@ -112,8 +112,8 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     show: false,
-    backgroundColor: "#15191f",
-    icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+    backgroundColor: "#0d1216",
+    icon: path.join(process.env.VITE_PUBLIC, "logo_nexus.svg"),
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
     },

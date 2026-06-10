@@ -53,4 +53,28 @@ describe('Sensor readings SQL', () => {
       [{ controllerId: 1, sensorId: 7, registerAddress: 50 }],
     ]);
   });
+
+  it('batches health sensor registers when requested', () => {
+    const batches = buildReadingRegisterBatches(
+      [
+        {
+          id: 7,
+          controllerId: 1,
+          nodeId: 3,
+          name: 'Bomba 01',
+          registers: [
+            { name: 'Status', address: 48, isHealthCheck: true },
+            { name: 'Vibração', address: 49, unit: 'mm/s' },
+          ],
+        },
+      ] as never,
+      1,
+      { includeHealth: true },
+    );
+
+    expect(batches).toEqual([
+      [{ controllerId: 1, sensorId: 7, registerAddress: 48 }],
+      [{ controllerId: 1, sensorId: 7, registerAddress: 49 }],
+    ]);
+  });
 });

@@ -30,7 +30,7 @@ export class ControllersService {
     const controller = await this.controllersRepository.findById(id);
 
     if (!controller) {
-      throw new NotFoundException(`Controller ${id} was not found`);
+      throw new NotFoundException(`Controlador ${id} não foi encontrado`);
     }
 
     return controller;
@@ -57,15 +57,12 @@ export class ControllersService {
 
   async updateController(controller: ControllerWrite): Promise<Controller> {
     if (!Number.isInteger(controller.id)) {
-      throw new BadRequestException('Controller ID is required');
+      throw new BadRequestException('ID do controlador é obrigatório');
     }
 
     this.validatePollingInterval(controller.pollingIntervalMs);
 
     const currentController = await this.getControllerById(controller.id);
-    const currentSensors = await this.sensorsRepository.findByControllerId(
-      controller.id,
-    );
     const controllerForUpload = {
       ...currentController,
       ...controller,
@@ -74,20 +71,35 @@ export class ControllersService {
       ipAddress: controller.ipAddress.trim(),
       site: controller.site?.trim() || null,
     };
-    const xmlMetadata =
-      await this.controllerXmlConfigService.uploadControllerConfig(
-        controllerForUpload,
-        currentSensors,
-      );
-    const updatedController =
-      await this.controllersRepository.updateController({
-        ...controllerForUpload,
-        ...xmlMetadata,
-      });
+    const updatedController = await this.updateControllerAndXmlIfIpChanged(
+      currentController,
+      controllerForUpload,
+    );
 
     void this.pollingRuntimeService.refreshController(updatedController.id);
 
     return updatedController;
+  }
+
+  private async updateControllerAndXmlIfIpChanged(
+    currentController: Controller,
+    nextController: ControllerWrite,
+  ): Promise<Controller> {
+    if (currentController.ipAddress === nextController.ipAddress) {
+      return this.controllersRepository.updateController(nextController);
+    }
+
+    const parsedXml =
+      await this.controllerXmlConfigService.downloadControllerConfig(
+        nextController.ipAddress,
+      );
+    return this.controllersRepository.updateControllerWithSensors(
+      {
+        ...nextController,
+        ...this.controllerXmlConfigService.toXmlMetadata(parsedXml),
+      },
+      parsedXml.sensors,
+    );
   }
 
   async syncControllerXml(controllerId: number) {
@@ -104,7 +116,9 @@ export class ControllersService {
       await this.controllersRepository.deleteController(controllerId);
 
     if (!controller) {
-      throw new NotFoundException(`Controller ${controllerId} was not found`);
+      throw new NotFoundException(
+        `Controlador ${controllerId} não foi encontrado`,
+      );
     }
 
     await this.sensorsRepository.deleteByControllerId(controllerId);
@@ -120,7 +134,7 @@ export class ControllersService {
       (!Number.isInteger(pollingIntervalMs) || pollingIntervalMs <= 0)
     ) {
       throw new BadRequestException(
-        'Polling interval must be a positive integer in milliseconds',
+        'Intervalo de coleta deve ser um inteiro positivo em milissegundos',
       );
     }
   }

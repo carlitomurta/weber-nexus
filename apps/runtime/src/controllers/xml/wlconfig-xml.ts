@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
-import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser';
 import type { NewSensor, Sensor } from '@weber-nexus/repository';
+import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser';
+import { createHash } from 'node:crypto';
 import { DEFAULT_WLCONFIG_TEMPLATE_XML } from './wlconfig-template';
 
 const ATTRIBUTE_PREFIX = '@_';
@@ -43,6 +43,7 @@ export function cleanWlConfigXml(raw: string): string {
   let cleaned = raw
     .replace(/\bEOF\b/g, '')
     .replace(/RSP1002\d+,[a-fA-F0-9]+,/gms, '')
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   const start = cleaned.indexOf('<?xml');
@@ -71,7 +72,9 @@ export function parseWlConfigXml(xml: string): ParsedWlConfig {
   const document = parser.parse(xml) as unknown;
 
   if (!isWlConfigDocument(document)) {
-    throw new WlConfigXmlError('WLConfig.xml does not contain configuration root');
+    throw new WlConfigXmlError(
+      'WLConfig.xml não contém a raiz de configuração',
+    );
   }
 
   return {
@@ -90,7 +93,8 @@ export function buildWlConfigXml(
   const configuration = document.configuration;
   const { localRegisters, rules } = buildLocalRegistersAndRules(sensors);
 
-  configuration.local_regs = localRegisters.length > 0 ? { reg: localRegisters } : {};
+  configuration.local_regs =
+    localRegisters.length > 0 ? { reg: localRegisters } : {};
   configuration.rtu_read = rules.length > 0 ? { rule: rules } : {};
 
   const xml = builder.build(document).trim();
@@ -114,9 +118,9 @@ function validateWlConfigXml(xml: string): void {
 
   if (validation !== true) {
     const detail = validation.err
-      ? ` at line ${validation.err.line}, column ${validation.err.col}: ${validation.err.msg}`
+      ? ` na linha ${validation.err.line}, coluna ${validation.err.col}: ${validation.err.msg}`
       : '';
-    throw new WlConfigXmlError(`Invalid WLConfig.xml${detail}`);
+    throw new WlConfigXmlError(`WLConfig.xml inválido${detail}`);
   }
 }
 
@@ -128,7 +132,7 @@ function parseBaseWlConfigDocument(
       return parseWlConfigXml(baseXml).document;
     }
   } catch {
-    // Fall back to known-safe template when legacy records have no XML snapshot.
+    // Usa template seguro quando registros legados não possuem snapshot XML.
   }
 
   return parseWlConfigXml(DEFAULT_WLCONFIG_TEMPLATE_XML).document;
@@ -148,7 +152,11 @@ function sensorsFromWlConfigDocument(
       const remreg = readPositiveIntegerAttribute(rule, 'remreg');
       const name = readStringAttribute(rule, 'name') ?? `Sensor ${remreg}`;
 
-      if (count === undefined || localreg === undefined || remreg === undefined) {
+      if (
+        count === undefined ||
+        localreg === undefined ||
+        remreg === undefined
+      ) {
         return undefined;
       }
 
@@ -184,7 +192,10 @@ function sensorsFromWlConfigDocument(
         deletedAt: null,
       };
     })
-    .filter((sensor): sensor is Omit<NewSensor, 'controllerId'> => sensor !== undefined);
+    .filter(
+      (sensor): sensor is Omit<NewSensor, 'controllerId'> =>
+        sensor !== undefined,
+    );
 }
 
 function indexedLocalRegisters(
@@ -227,7 +238,10 @@ function buildLocalRegistersAndRules(
 
     for (const register of orderedRegisters) {
       const num = localRegisters.length + 1;
-      localRegisterBySensorRegister.set(sensorRegisterKey(sensor, register), num);
+      localRegisterBySensorRegister.set(
+        sensorRegisterKey(sensor, register),
+        num,
+      );
       localRegisters.push(toLocalRegisterXmlAttributes(register, num));
     }
 
@@ -239,7 +253,14 @@ function buildLocalRegistersAndRules(
 
       if (localreg === undefined) continue;
 
-      rules.push(toRtuReadRuleXmlAttributes(sensor.name, firstRegister.address, group.length, localreg));
+      rules.push(
+        toRtuReadRuleXmlAttributes(
+          sensor.name,
+          firstRegister.address,
+          group.length,
+          localreg,
+        ),
+      );
     }
   }
 
@@ -305,7 +326,11 @@ function contiguousRegisterGroups<T extends { address: number }>(
     const lastGroup = groups.at(-1);
     const lastRegister = lastGroup?.at(-1);
 
-    if (lastGroup && lastRegister && register.address === lastRegister.address + 1) {
+    if (
+      lastGroup &&
+      lastRegister &&
+      register.address === lastRegister.address + 1
+    ) {
       lastGroup.push(register);
     } else {
       groups.push([register]);

@@ -23,7 +23,7 @@ export class AuthService implements OnModuleInit {
         user: this.toSafeUser(user),
       };
     } catch {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException('E-mail ou senha inválidos.');
     }
   }
 

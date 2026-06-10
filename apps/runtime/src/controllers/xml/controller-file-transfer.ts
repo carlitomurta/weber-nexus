@@ -10,6 +10,13 @@ export type ControllerFileTransferOptions = {
   readonly timeoutMs?: number;
 };
 
+export type WlConfigUploadPlan = {
+  readonly fileSizeBytes: number;
+  readonly chunkCount: number;
+  readonly chunkSizes: readonly number[];
+  readonly totalChunkBytes: number;
+};
+
 export async function downloadWlConfigXml(
   options: ControllerFileTransferOptions,
 ): Promise<string> {
@@ -30,11 +37,15 @@ export async function downloadWlConfigXml(
     };
 
     socket.setTimeout(timeoutMs, () => {
-      fail(new Error('Controller XML download timed out'));
+      fail(new Error('Tempo esgotado ao baixar o XML do controlador'));
     });
 
     socket.on('error', (error) => {
-      fail(new Error('Controller XML download connection error', { cause: error }));
+      fail(
+        new Error('Erro de conexão ao baixar o XML do controlador', {
+          cause: error,
+        }),
+      );
     });
 
     socket.on('data', (data: Buffer) => {
@@ -52,7 +63,11 @@ export async function downloadWlConfigXml(
         }
 
         if (rawResponse.includes('\n')) {
-          fail(new Error(`Unexpected controller XML open response: ${trimmed}`));
+          fail(
+            new Error(
+              `Resposta inesperada ao abrir o XML do controlador: ${trimmed}`,
+            ),
+          );
         }
 
         return;
@@ -82,21 +97,31 @@ export async function uploadWlConfigXml(
 ): Promise<void> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const socket = await connectSocket(options.host, timeoutMs);
-  const encodedXml = encodeXmlForController(xml);
-  const chunks = chunkBuffer(encodedXml, MAX_CHUNK_BYTES);
+  const upload = createWlConfigUpload(xml);
 
   try {
-    await writeCommandAndWait(socket, 'CMD1003\r\n', timeoutMs);
+    const preflightCloseResponse = await writeCommandAndWait(
+      socket,
+      'CMD1003\r\n',
+      timeoutMs,
+    );
+
+    if (isApiError(preflightCloseResponse)) {
+      // Uma sessão interrompida pode retornar IPC_PARAMS neste fechamento de
+      // limpeza. A nova transferência começa com CMD1001 e deve continuar.
+    } else {
+      assertExpectedResponse(preflightCloseResponse, 'RSP1003');
+    }
 
     const openResponse = await writeCommandAndWait(
       socket,
-      `CMD1001 ${WLCONFIG_FILENAME},1,${encodedXml.length},0\r\n`,
+      `CMD1001 ${WLCONFIG_FILENAME},1,${upload.plan.fileSizeBytes},0\r\n`,
       timeoutMs,
     );
-    assertExpectedResponse(openResponse, 'RSP1001');
+    assertExpectedResponse(openResponse, 'RSP1001', upload.plan);
 
-    for (let index = 0; index < chunks.length; index += 1) {
-      const chunk = chunks[index];
+    for (let index = 0; index < upload.chunks.length; index += 1) {
+      const chunk = upload.chunks[index];
       const crc = formatModbusCrc16(chunk);
       const commandPrefix = Buffer.from(
         `CMD1002 ${chunk.length},${crc},${index + 1},`,
@@ -108,14 +133,61 @@ export async function uploadWlConfigXml(
         timeoutMs,
       );
 
-      assertExpectedResponse(response, 'RSP1002');
+      assertExpectedResponse(
+        response,
+        'RSP1002',
+        upload.plan,
+        `fragmento=${index + 1} bytesDoFragmento=${chunk.length}`,
+      );
     }
 
-    const closeResponse = await writeCommandAndWait(socket, 'CMD1003\r\n', timeoutMs);
-    assertExpectedResponse(closeResponse, 'RSP1003');
+    const closeResponse = await writeCommandAndWait(
+      socket,
+      'CMD1003\r\n',
+      timeoutMs,
+    );
+    assertExpectedResponse(
+      closeResponse,
+      'RSP1003',
+      upload.plan,
+      'fechamento final',
+    );
   } finally {
     socket.end();
   }
+}
+
+export function createWlConfigUploadPlan(xml: string): WlConfigUploadPlan {
+  return createWlConfigUpload(xml).plan;
+}
+
+function createWlConfigUpload(xml: string): {
+  readonly encodedXml: Buffer;
+  readonly chunks: Buffer[];
+  readonly plan: WlConfigUploadPlan;
+} {
+  const encodedXml = encodeXmlForController(xml);
+  const chunks = chunkBuffer(encodedXml, MAX_CHUNK_BYTES);
+  const chunkSizes = chunks.map((chunk) => chunk.length);
+  const totalChunkBytes = chunkSizes.reduce((total, size) => total + size, 0);
+  const plan = {
+    fileSizeBytes: encodedXml.length,
+    chunkCount: chunks.length,
+    chunkSizes,
+    totalChunkBytes,
+  };
+
+  if (plan.fileSizeBytes !== plan.totalChunkBytes) {
+    throw new Error(
+      `Plano de bytes inválido para envio do WLConfig: ${uploadPlanSummary(plan)}`,
+    );
+  }
+
+  return {
+    encodedXml,
+    chunks,
+    plan,
+  };
 }
 
 export function encodeXmlForController(xml: string): Buffer {
@@ -164,18 +236,29 @@ export function formatModbusCrc16(buffer: Buffer): string {
   return modbusCrc16(buffer).toString(16).toUpperCase().padStart(4, '0');
 }
 
-async function connectSocket(host: string, timeoutMs: number): Promise<net.Socket> {
+async function connectSocket(
+  host: string,
+  timeoutMs: number,
+): Promise<net.Socket> {
   const socket = new net.Socket();
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       socket.destroy();
-      reject(new Error('Controller XML upload connection timed out'));
+      reject(
+        new Error(
+          'Tempo esgotado ao conectar para enviar o XML do controlador',
+        ),
+      );
     }, timeoutMs);
 
     socket.once('error', (error) => {
       clearTimeout(timer);
-      reject(new Error('Controller XML upload connection error', { cause: error }));
+      reject(
+        new Error('Erro de conexão ao enviar o XML do controlador', {
+          cause: error,
+        }),
+      );
     });
 
     socket.connect(CONTROLLER_API_PORT, host, () => {
@@ -212,7 +295,7 @@ async function waitForResponse(
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error('Controller XML upload response timed out'));
+      reject(new Error('Tempo esgotado ao aguardar resposta do envio do XML'));
     }, timeoutMs);
 
     const cleanup = (): void => {
@@ -224,13 +307,16 @@ async function waitForResponse(
     const onData = (data: Buffer): void => {
       cleanup();
       const response = data.toString('utf8').trim();
-      rejectApiError(response);
       resolve(response);
     };
 
     const onError = (error: Error): void => {
       cleanup();
-      reject(new Error('Controller XML upload connection error', { cause: error }));
+      reject(
+        new Error('Erro de conexão durante o envio do XML do controlador', {
+          cause: error,
+        }),
+      );
     };
 
     socket.once('data', onData);
@@ -238,16 +324,41 @@ async function waitForResponse(
   });
 }
 
-function assertExpectedResponse(response: string, expectedPrefix: string): void {
-  rejectApiError(response);
+function assertExpectedResponse(
+  response: string,
+  expectedPrefix: string,
+  uploadPlan?: WlConfigUploadPlan,
+  context?: string,
+): void {
+  if (isApiError(response)) {
+    throw new Error(
+      [
+        `Controlador rejeitou a transferência do XML: ${response}`,
+        context,
+        uploadPlan ? uploadPlanSummary(uploadPlan) : undefined,
+      ]
+        .filter(Boolean)
+        .join(' | '),
+    );
+  }
 
   if (!response.startsWith(expectedPrefix)) {
-    throw new Error(`Unexpected controller response: ${response}`);
+    throw new Error(
+      [
+        `Resposta inesperada do controlador: ${response}`,
+        context,
+        uploadPlan ? uploadPlanSummary(uploadPlan) : undefined,
+      ]
+        .filter(Boolean)
+        .join(' | '),
+    );
   }
 }
 
-function rejectApiError(response: string): void {
-  if (response.includes('IPC_PARAMS') || response.includes('API_NO_MEMORY')) {
-    throw new Error(`Controller rejected XML transfer: ${response}`);
-  }
+function isApiError(response: string): boolean {
+  return response.includes('IPC_PARAMS') || response.includes('API_NO_MEMORY');
+}
+
+function uploadPlanSummary(plan: WlConfigUploadPlan): string {
+  return `bytesDeclarados=${plan.fileSizeBytes} totalBytesFragmentos=${plan.totalChunkBytes} quantidadeFragmentos=${plan.chunkCount} tamanhosFragmentos=${plan.chunkSizes.join(',')}`;
 }

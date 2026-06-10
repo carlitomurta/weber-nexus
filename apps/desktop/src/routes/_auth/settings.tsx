@@ -18,11 +18,6 @@ interface SettingsStatePanelProps {
   message: string;
 }
 
-interface SettingsQueryStateProps {
-  isOffline: boolean;
-  isStale: boolean;
-}
-
 function AdminPage() {
   const settings = useSettingsPage();
 
@@ -56,11 +51,6 @@ function AdminPage() {
           <SettingsStatePanel message="Não foi possível carregar controladores e sensores." />
         ) : (
           <>
-            <SettingsQueryState
-              isOffline={settings.isOffline}
-              isStale={settings.isStale}
-            />
-
             <div className="grid grid-cols-12 gap-4">
               <ControllerList
                 controllers={settings.controllers}
@@ -152,20 +142,6 @@ function SettingsStatePanel({ message }: SettingsStatePanelProps) {
   return (
     <div className="rounded-lg border border-border bg-card/60 p-10 text-center text-sm text-muted-foreground">
       {message}
-    </div>
-  );
-}
-
-function SettingsQueryState({ isOffline, isStale }: SettingsQueryStateProps) {
-  if (!isOffline && !isStale) {
-    return null;
-  }
-
-  return (
-    <div className="rounded border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      {isOffline
-        ? "Offline: exibindo dados locais disponíveis."
-        : "Dados possivelmente desatualizados."}
     </div>
   );
 }

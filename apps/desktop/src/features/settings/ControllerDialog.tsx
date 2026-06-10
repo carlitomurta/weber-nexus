@@ -84,7 +84,7 @@ export function ControllerDialog({
                 }
               />
             </Field>
-            <Field label="Intervalo de polling (ms)">
+            <Field label="Intervalo de coleta (ms)">
               <input
                 type="number"
                 min={1000}

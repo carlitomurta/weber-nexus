@@ -13,6 +13,7 @@ import {
   type Sensor,
 } from '@weber-nexus/repository';
 import {
+  createWlConfigUploadPlan,
   downloadWlConfigXml,
   uploadWlConfigXml,
 } from './controller-file-transfer';
@@ -46,8 +47,10 @@ export class ControllerXmlConfigService {
 
       return parseWlConfigXml(cleanedXml);
     } catch (error) {
-      this.logger.error(`Failed to download WLConfig.xml from ${ipAddress}`, error);
-      throw new BadGatewayException('Could not download a valid WLConfig.xml');
+      this.logger.error(`Falha ao baixar WLConfig.xml de ${ipAddress}`, error);
+      throw new BadGatewayException(
+        'Não foi possível baixar um WLConfig.xml válido',
+      );
     }
   }
 
@@ -55,7 +58,9 @@ export class ControllerXmlConfigService {
     const controller = await this.controllersRepository.findById(controllerId);
 
     if (!controller) {
-      throw new NotFoundException(`Controller ${controllerId} was not found`);
+      throw new NotFoundException(
+        `Controlador ${controllerId} não foi encontrado`,
+      );
     }
 
     const parsed = await this.downloadControllerConfig(controller.ipAddress);
@@ -85,17 +90,26 @@ export class ControllerXmlConfigService {
   async uploadControllerConfig(
     controller: Pick<Controller, 'ipAddress' | 'xmlConfig'>,
     sensors: ReadonlyArray<Sensor | NewSensor>,
-  ): Promise<{ xmlConfig: string; xmlConfigChecksum: string; xmlLastSyncedAt: Date }> {
+  ): Promise<{
+    xmlConfig: string;
+    xmlConfigChecksum: string;
+    xmlLastSyncedAt: Date;
+  }> {
     const xmlConfig = buildWlConfigXml(controller.xmlConfig, sensors);
+    const uploadPlan = createWlConfigUploadPlan(xmlConfig.xml);
+
+    this.logger.info(
+      `Enviando WLConfig.xml para ${controller.ipAddress}: bytesDeclarados=${uploadPlan.fileSizeBytes} totalBytesFragmentos=${uploadPlan.totalChunkBytes} quantidadeFragmentos=${uploadPlan.chunkCount} tamanhosFragmentos=${uploadPlan.chunkSizes.join(',')}`,
+    );
 
     try {
       await uploadWlConfigXml(xmlConfig.xml, { host: controller.ipAddress });
     } catch (error) {
       this.logger.error(
-        `Failed to upload WLConfig.xml to ${controller.ipAddress}`,
+        `Falha ao enviar WLConfig.xml para ${controller.ipAddress}`,
         error,
       );
-      throw new BadGatewayException('Could not upload WLConfig.xml');
+      throw new BadGatewayException('Não foi possível enviar o WLConfig.xml');
     }
 
     return {
@@ -111,7 +125,9 @@ export class ControllerXmlConfigService {
     xmlLastSyncedAt: Date;
   } {
     if (parsed.sensors.some((sensor) => sensor.registers.length === 0)) {
-      throw new BadRequestException('Imported sensors must include registers');
+      throw new BadRequestException(
+        'Sensores importados devem conter registros',
+      );
     }
 
     return {

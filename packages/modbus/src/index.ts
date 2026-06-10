@@ -51,7 +51,7 @@ export function createControllerConnection(
     case "modbus-tcp":
       return new ModbusTcpConnection(config);
     default:
-      throw new Error(`Unsupported connection protocol: ${config.protocol}`);
+      throw new Error(`Protocolo de conexão não suportado: ${config.protocol}`);
   }
 }
 
@@ -69,7 +69,7 @@ export class ModbusTcpConnection implements ControllerConnection {
     this.client.setTimeout(this.config.timeoutMs ?? 5000);
     await this.client.connectTCP(this.config.host, { port: MODBUS_TCP_PORT });
     this.connected = true;
-    logger.info(`Controller connected IP:${this.config.host}`);
+    logger.info(`Controlador conectado IP:${this.config.host}`);
   }
 
   async close(): Promise<void> {
@@ -79,7 +79,7 @@ export class ModbusTcpConnection implements ControllerConnection {
       this.client.close(() => resolve());
     });
     this.connected = false;
-    logger.info(`Controller closed IP:${this.config.host}`);
+    logger.info(`Conexão do controlador encerrada IP:${this.config.host}`);
   }
 
   async readHoldingRegisters(
@@ -92,13 +92,13 @@ export class ModbusTcpConnection implements ControllerConnection {
     if (registers.length === 0) return [];
 
     logger.info(
-      `Reading controller IP:${this.config.host} ${registers.length} ordered holding registers from offset 0`,
+      `Lendo controlador IP:${this.config.host} ${registers.length} registradores holding ordenados a partir do offset 0`,
     );
     const result = await this.client.readHoldingRegisters(0, registers.length);
 
     if (result.data.length < registers.length) {
       throw new Error(
-        `Expected ${registers.length} holding register values, received ${result.data.length}`,
+        `Esperados ${registers.length} valores de registrador holding, recebidos ${result.data.length}`,
       );
     }
 

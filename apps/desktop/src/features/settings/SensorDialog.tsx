@@ -178,13 +178,6 @@ export function SensorDialog({
             setDraft={setDraft}
             onNodeIdChange={updateNodeId}
           />
-          <RegisterEditor
-            draft={draft}
-            registerDraft={registerDraft}
-            setRegisterDraft={setRegisterDraft}
-            onAddRegister={addRegister}
-            onRemoveRegister={removeRegister}
-          />
           <Field label="Descrição">
             <input
               className={inputCls}
@@ -195,6 +188,13 @@ export function SensorDialog({
               }
             />
           </Field>
+          <RegisterEditor
+            draft={draft}
+            registerDraft={registerDraft}
+            setRegisterDraft={setRegisterDraft}
+            onAddRegister={addRegister}
+            onRemoveRegister={removeRegister}
+          />
         </div>
         <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
           <button
@@ -241,8 +241,8 @@ function SensorFields({ draft, setDraft, onNodeIdChange }: SensorFieldsProps) {
           />
         </Field>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <Field label="Node ID">
+      <div className="grid grid-cols-[minmax(9rem,1.2fr)_minmax(0,1.8fr)] gap-3">
+        <Field label="ID do sensor">
           <input
             type="number"
             min={1}
@@ -261,13 +261,6 @@ function SensorFields({ draft, setDraft, onNodeIdChange }: SensorFieldsProps) {
             onChange={(event) =>
               setDraft({ ...draft, location: event.target.value })
             }
-          />
-        </Field>
-        <Field label="Primeiro endereço">
-          <input
-            readOnly
-            className={`${inputCls} font-mono`}
-            value={firstNodeRegisterAddress(draft.nodeId)}
           />
         </Field>
       </div>
@@ -338,7 +331,7 @@ function RegisterEditor({
               })
             }
           />
-          Health check
+          Status
         </label>
         <button
           onClick={onAddRegister}
@@ -432,7 +425,7 @@ function RegisterRow({ register, onRemoveRegister }: RegisterRowProps) {
         {register.address}
       </span>
       <span className="text-muted-foreground">
-        {register.isHealthCheck ? "Health check" : scaleLabel}
+        {register.isHealthCheck ? "Status" : scaleLabel}
       </span>
       <span className="font-mono text-muted-foreground">
         {register.isHealthCheck ? "-" : register.unit}

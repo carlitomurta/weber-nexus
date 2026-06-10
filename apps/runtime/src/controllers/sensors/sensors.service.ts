@@ -30,7 +30,7 @@ export class SensorsService {
     const sensor = await this.sensorsRepository.findById(id);
 
     if (!sensor) {
-      throw new NotFoundException(`Sensor ${id} was not found`);
+      throw new NotFoundException(`Sensor ${id} não foi encontrado`);
     }
 
     return sensor;
@@ -43,10 +43,10 @@ export class SensorsService {
       sensor.controllerId,
     );
     const xmlMetadata =
-      await this.controllerXmlConfigService.uploadControllerConfig(
-        controller,
-        [...currentSensors, sensor],
-      );
+      await this.controllerXmlConfigService.uploadControllerConfig(controller, [
+        ...currentSensors,
+        sensor,
+      ]);
 
     const insertedSensor = await this.sensorsRepository.insertSensor(sensor);
     await this.controllersRepository.updateXmlSyncMetadata(
@@ -66,7 +66,7 @@ export class SensorsService {
 
     if (sensor.controllerId !== currentSensor.controllerId) {
       throw new BadRequestException(
-        'Moving sensors between controllers is not supported',
+        'Não é possível mover sensores entre controladores',
       );
     }
 
@@ -116,7 +116,7 @@ export class SensorsService {
     const deletedSensor = await this.sensorsRepository.deleteSensor(sensorId);
 
     if (!deletedSensor) {
-      throw new NotFoundException(`Sensor ${sensorId} was not found`);
+      throw new NotFoundException(`Sensor ${sensorId} não foi encontrado`);
     }
 
     await this.controllersRepository.updateXmlSyncMetadata(
@@ -140,11 +140,13 @@ export class SensorsService {
       sensor.nodeId < 1 ||
       sensor.nodeId > 247
     ) {
-      throw new BadRequestException('Node ID must be an integer from 1 to 247');
+      throw new BadRequestException('ID do nó deve ser um inteiro de 1 a 247');
     }
 
     if (!Array.isArray(sensor.registers) || sensor.registers.length === 0) {
-      throw new BadRequestException('Sensor registers must not be empty');
+      throw new BadRequestException(
+        'Registros do sensor não podem ficar vazios',
+      );
     }
 
     const invalidRegister = sensor.registers.find(
@@ -159,7 +161,7 @@ export class SensorsService {
 
     if (invalidRegister !== undefined) {
       throw new BadRequestException(
-        `Sensor registers must be named addresses from ${firstNodeRegisterAddress(sensor.nodeId)} to ${lastNodeRegisterAddress(sensor.nodeId)}`,
+        `Registros do sensor devem ter nome e endereços entre ${firstNodeRegisterAddress(sensor.nodeId)} e ${lastNodeRegisterAddress(sensor.nodeId)}`,
       );
     }
 
@@ -171,7 +173,7 @@ export class SensorsService {
 
     if (conflict) {
       throw new BadRequestException(
-        `Node ID ${sensor.nodeId} is already registered on controller ${sensor.controllerId}`,
+        `ID do nó ${sensor.nodeId} já está cadastrado no controlador ${sensor.controllerId}`,
       );
     }
   }
@@ -197,11 +199,12 @@ export class SensorsService {
   }
 
   private async getControllerForSensor(controllerId: number) {
-    const controller =
-      await this.controllersRepository.findById(controllerId);
+    const controller = await this.controllersRepository.findById(controllerId);
 
     if (!controller) {
-      throw new NotFoundException(`Controller ${controllerId} was not found`);
+      throw new NotFoundException(
+        `Controlador ${controllerId} não foi encontrado`,
+      );
     }
 
     return controller;

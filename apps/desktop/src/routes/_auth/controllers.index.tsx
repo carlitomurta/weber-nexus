@@ -4,6 +4,7 @@ import { ChevronRight, Cpu } from "lucide-react";
 import { PageTitle } from "@/components/shared/PageTitle";
 import { useControllers } from "@/hooks/useControllers";
 import { useSensors } from "@/hooks/useSensors";
+import { formatPollingInterval } from "@/utils/formatPollingInterval";
 
 import type { Controller } from "../../../types/controllers.type";
 import type { Sensor } from "../../../types/sensors.type";
@@ -23,16 +24,11 @@ interface ControllerCardProps {
 
 interface StatProps {
   label: string;
-  value: number;
+  value: number | string;
 }
 
 interface RouteStateProps {
   message: string;
-}
-
-interface RouteQueryStateProps {
-  isOffline: boolean;
-  isStale: boolean;
 }
 
 function ControllersPage() {
@@ -42,18 +38,14 @@ function ControllersPage() {
   const sensors = sensorsQuery.data ?? emptySensors;
   const isLoading = controllersQuery.isLoading || sensorsQuery.isLoading;
   const isError = controllersQuery.isError || sensorsQuery.isError;
-  const isStale = controllersQuery.isStale || sensorsQuery.isStale;
-  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
   return (
     <>
-      <div className="pb-5">
-        <PageTitle
-          page="Planta AMBEV"
-          title="Controladores"
-          subtitle={`${controllers.length} controladores cadastrados · ${sensors.length} sensores configurados`}
-        />
-      </div>
+      <PageTitle
+        page="Planta AMBEV"
+        title="Controladores"
+        subtitle={`${controllers.length} controladores cadastrados · ${sensors.length} sensores configurados`}
+      />
       <hr />
 
       {isLoading ? (
@@ -64,7 +56,6 @@ function ControllersPage() {
         <RouteState message="Nenhum controlador cadastrado." />
       ) : (
         <>
-          <RouteQueryState isOffline={isOffline} isStale={isStale} />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {controllers.map((controller) => (
               <ControllerCard
@@ -114,7 +105,10 @@ function ControllerCard({ controller, sensorCount }: ControllerCardProps) {
       <div className="mt-4 grid grid-cols-3 gap-2">
         <Stat label="Sensores" value={sensorCount} />
         <Stat label="Porta" value={controller.port ?? 0} />
-        <Stat label="Polling" value={controller.pollingIntervalMs / 1000} />
+        <Stat
+          label="Coleta"
+          value={formatPollingInterval(controller.pollingIntervalMs)}
+        />
       </div>
 
       <div className="mt-4 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
@@ -142,20 +136,6 @@ function RouteState({ message }: RouteStateProps) {
   return (
     <div className="rounded-lg border border-border bg-card/60 p-10 text-center text-sm text-muted-foreground">
       {message}
-    </div>
-  );
-}
-
-function RouteQueryState({ isOffline, isStale }: RouteQueryStateProps) {
-  if (!isOffline && !isStale) {
-    return null;
-  }
-
-  return (
-    <div className="mb-4 rounded border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      {isOffline
-        ? "Offline: exibindo dados locais disponíveis."
-        : "Dados possivelmente desatualizados."}
     </div>
   );
 }
