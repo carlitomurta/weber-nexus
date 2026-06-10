@@ -1,12 +1,23 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { controllers, type Database } from "@weber-nexus/database";
+import { controllers, sensors, type Database } from "@weber-nexus/database";
 import { eq, isNull } from "drizzle-orm";
 
 import { DB_TOKEN } from "../database.constants.js";
+import type { NewSensor } from "./sensors.repository.js";
 
 export type Controller = typeof controllers.$inferSelect;
 export type NewController = typeof controllers.$inferInsert;
-export type ControllerWrite = Omit<Controller, "createdAt" | "updatedAt">;
+export type ControllerXmlSyncMetadata = {
+  xmlConfig: string;
+  xmlConfigChecksum: string;
+  xmlLastSyncedAt: Date;
+};
+export type ControllerWrite = Omit<
+  Controller,
+  "createdAt" | "updatedAt" | keyof ControllerXmlSyncMetadata
+> &
+  Partial<ControllerXmlSyncMetadata>;
+export type ImportedSensor = Omit<NewSensor, "controllerId">;
 
 @Injectable()
 export class ControllersRepository {
@@ -36,6 +47,36 @@ export class ControllersRepository {
     return newController;
   }
 
+  async insertControllerWithSensors(
+    controller: NewController,
+    importedSensors: ImportedSensor[],
+    xmlMetadata: ControllerXmlSyncMetadata,
+  ): Promise<Controller> {
+    return this.db.transaction((tx) => {
+      const newController = tx
+        .insert(controllers)
+        .values({
+          ...controller,
+          ...xmlMetadata,
+        })
+        .returning()
+        .get();
+
+      if (importedSensors.length > 0) {
+        tx.insert(sensors)
+          .values(
+            importedSensors.map((sensor) => ({
+              ...sensor,
+              controllerId: newController.id,
+            })),
+          )
+          .run();
+      }
+
+      return newController;
+    });
+  }
+
   async updateController(controller: ControllerWrite): Promise<Controller> {
     const { id, ...controllerData } = controller;
     const [newController] = await this.db
@@ -56,6 +97,19 @@ export class ControllersRepository {
         operationalStatus: "removed",
         updatedAt: new Date(),
       })
+      .where(eq(controllers.id, controllerId))
+      .returning();
+
+    return controller;
+  }
+
+  async updateXmlSyncMetadata(
+    controllerId: number,
+    xmlMetadata: ControllerXmlSyncMetadata,
+  ): Promise<Controller | undefined> {
+    const [controller] = await this.db
+      .update(controllers)
+      .set({ ...xmlMetadata, updatedAt: new Date() })
       .where(eq(controllers.id, controllerId))
       .returning();
 

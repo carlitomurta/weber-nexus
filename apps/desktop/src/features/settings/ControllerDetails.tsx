@@ -1,4 +1,11 @@
-import { Pencil, Plus, Radio, Settings2, Trash2 } from "lucide-react";
+import {
+  Pencil,
+  Plus,
+  Radio,
+  RefreshCw,
+  Settings2,
+  Trash2,
+} from "lucide-react";
 
 import type { Controller } from "../../../types/controllers.type";
 import type { Sensor } from "../../../types/sensors.type";
@@ -11,6 +18,8 @@ interface ControllerDetailsProps {
   onAddSensor: () => void;
   onDeleteSensor: (confirm: DeleteConfirmation) => void;
   onEditSensor: (sensor: Sensor) => void;
+  onSyncController: () => void;
+  isSyncing: boolean;
 }
 
 interface SensorRowProps {
@@ -25,6 +34,8 @@ export function ControllerDetails({
   onAddSensor,
   onDeleteSensor,
   onEditSensor,
+  onSyncController,
+  isSyncing,
 }: ControllerDetailsProps) {
   if (!selected) {
     return (
@@ -50,6 +61,14 @@ export function ControllerDetails({
               <span className="font-mono">{selected.ipAddress}</span>
             </div>
           </div>
+          <button
+            onClick={onSyncController}
+            disabled={isSyncing}
+            className="inline-flex h-8 items-center gap-1.5 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            Sincronizar
+          </button>
         </div>
       </div>
 

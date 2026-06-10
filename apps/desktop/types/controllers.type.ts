@@ -9,6 +9,9 @@ export const controllerSchema = z.object({
   site: z.string(),
   isMultihop: z.boolean().nullish(),
   pollingIntervalMs: z.number(),
+  xmlConfig: z.string().nullable().optional(),
+  xmlConfigChecksum: z.string().nullable().optional(),
+  xmlLastSyncedAt: z.date().nullish(),
   createdAt: z.date().nullish(),
   updatedAt: z.date().nullish(),
 });
@@ -22,5 +25,8 @@ export const createControllerRequestSchema = controllerSchema.omit({
 });
 
 export type Controller = z.infer<typeof controllerSchema>;
-export type ControllerWrite = Omit<Controller, "createdAt" | "updatedAt">;
+export type ControllerWrite = Omit<
+  Controller,
+  "createdAt" | "updatedAt" | "xmlConfig" | "xmlConfigChecksum" | "xmlLastSyncedAt"
+>;
 export type CreateControllerInput = Omit<ControllerWrite, "id">;

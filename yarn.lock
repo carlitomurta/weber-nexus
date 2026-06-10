@@ -4812,6 +4812,7 @@ __metadata:
     eslint: "npm:^9.18.0"
     eslint-config-prettier: "npm:^10.0.1"
     eslint-plugin-prettier: "npm:^5.2.2"
+    fast-xml-parser: "npm:^5.8.0"
     globals: "npm:^17.0.0"
     jest: "npm:^30.0.0"
     prettier: "npm:^3.4.2"

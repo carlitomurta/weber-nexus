@@ -30,6 +30,11 @@ export class ControllersController {
     return this.service.postController(controller);
   }
 
+  @Post(':id/xml/sync')
+  syncXml(@Param('id', ParseIntPipe) id: number) {
+    return this.service.syncControllerXml(id);
+  }
+
   @Patch()
   update(@Body() controller: ControllerWrite) {
     return this.service.updateController(controller);

@@ -7,3 +7,10 @@ export type SensorDraft = Omit<CreateSensorInput, "controllerId">;
 export type DeleteConfirmation =
   | { kind: "controller"; id: number; name: string }
   | { kind: "sensor"; id: number; name: string };
+
+export type ResetConfirmation = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+};

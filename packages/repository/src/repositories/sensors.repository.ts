@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { sensors, type Database } from "@weber-nexus/database";
+import { controllers, sensors, type Database } from "@weber-nexus/database";
 import { and, eq, isNull, ne } from "drizzle-orm";
 
 import { DB_TOKEN } from "../database.constants.js";
@@ -102,5 +102,55 @@ export class SensorsRepository {
       })
       .where(eq(sensors.controllerId, controllerId))
       .run();
+  }
+
+  async replaceByControllerId(
+    controllerId: number,
+    nextSensors: NewSensor[],
+  ): Promise<void> {
+    await this.db.transaction((tx) => {
+      tx.update(sensors)
+        .set({
+          deletedAt: new Date(),
+          operationalStatus: "removed",
+          updatedAt: new Date(),
+        })
+        .where(eq(sensors.controllerId, controllerId))
+        .run();
+
+      if (nextSensors.length > 0) {
+        tx.insert(sensors).values(nextSensors).run();
+      }
+    });
+  }
+
+  async replaceByControllerIdWithXmlMetadata(
+    controllerId: number,
+    nextSensors: NewSensor[],
+    xmlMetadata: {
+      xmlConfig: string;
+      xmlConfigChecksum: string;
+      xmlLastSyncedAt: Date;
+    },
+  ): Promise<void> {
+    await this.db.transaction((tx) => {
+      tx.update(sensors)
+        .set({
+          deletedAt: new Date(),
+          operationalStatus: "removed",
+          updatedAt: new Date(),
+        })
+        .where(eq(sensors.controllerId, controllerId))
+        .run();
+
+      if (nextSensors.length > 0) {
+        tx.insert(sensors).values(nextSensors).run();
+      }
+
+      tx.update(controllers)
+        .set({ ...xmlMetadata, updatedAt: new Date() })
+        .where(eq(controllers.id, controllerId))
+        .run();
+    });
   }
 }

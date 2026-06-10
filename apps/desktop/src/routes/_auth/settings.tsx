@@ -76,6 +76,8 @@ function AdminPage() {
                 onAddSensor={settings.openNewSensorDialog}
                 onDeleteSensor={settings.setConfirm}
                 onEditSensor={settings.startEditSensor}
+                onSyncController={settings.syncSelectedControllerXml}
+                isSyncing={settings.isSyncingControllerXml}
               />
             </div>
           </>
@@ -132,6 +134,15 @@ function AdminPage() {
         confirmLabel="Remover"
         destructive
         onConfirm={settings.handleConfirm}
+      />
+
+      <ConfirmDialog
+        open={settings.resetConfirm !== null}
+        onOpenChange={(open) => !open && settings.setResetConfirm(null)}
+        title={settings.resetConfirm?.title ?? ""}
+        description={settings.resetConfirm?.description ?? ""}
+        confirmLabel={settings.resetConfirm?.confirmLabel ?? "Confirmar"}
+        onConfirm={settings.handleResetConfirm}
       />
     </>
   );

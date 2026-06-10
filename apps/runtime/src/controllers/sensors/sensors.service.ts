@@ -4,18 +4,22 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ControllersRepository,
   type NewSensor,
   type Sensor,
   type SensorWrite,
   SensorsRepository,
 } from '@weber-nexus/repository';
 import { PollingRuntimeService } from '../../polling/polling-runtime.service';
+import { ControllerXmlConfigService } from '../xml/controller-xml-config.service';
 
 @Injectable()
 export class SensorsService {
   constructor(
+    private readonly controllersRepository: ControllersRepository,
     private readonly sensorsRepository: SensorsRepository,
     private readonly pollingRuntimeService: PollingRuntimeService,
+    private readonly controllerXmlConfigService: ControllerXmlConfigService,
   ) {}
 
   getAllSensors(): Promise<Sensor[]> {
@@ -34,8 +38,21 @@ export class SensorsService {
 
   async postSensor(sensor: NewSensor): Promise<Sensor> {
     await this.validateSensorConfiguration(sensor);
+    const controller = await this.getControllerForSensor(sensor.controllerId);
+    const currentSensors = await this.sensorsRepository.findByControllerId(
+      sensor.controllerId,
+    );
+    const xmlMetadata =
+      await this.controllerXmlConfigService.uploadControllerConfig(
+        controller,
+        [...currentSensors, sensor],
+      );
 
     const insertedSensor = await this.sensorsRepository.insertSensor(sensor);
+    await this.controllersRepository.updateXmlSyncMetadata(
+      insertedSensor.controllerId,
+      xmlMetadata,
+    );
 
     void this.pollingRuntimeService.refreshController(
       insertedSensor.controllerId,
@@ -45,9 +62,33 @@ export class SensorsService {
   }
 
   async updateSensor(sensor: SensorWrite): Promise<Sensor> {
+    const currentSensor = await this.getSensorById(sensor.id);
+
+    if (sensor.controllerId !== currentSensor.controllerId) {
+      throw new BadRequestException(
+        'Moving sensors between controllers is not supported',
+      );
+    }
+
     await this.validateSensorConfiguration(sensor, sensor.id);
+    const controller = await this.getControllerForSensor(sensor.controllerId);
+    const currentSensors = await this.sensorsRepository.findByControllerId(
+      sensor.controllerId,
+    );
+    const nextSensors = currentSensors.map((item) =>
+      item.id === sensor.id ? { ...item, ...sensor } : item,
+    );
+    const xmlMetadata =
+      await this.controllerXmlConfigService.uploadControllerConfig(
+        controller,
+        nextSensors,
+      );
 
     const updatedSensor = await this.sensorsRepository.updateSensor(sensor);
+    await this.controllersRepository.updateXmlSyncMetadata(
+      updatedSensor.controllerId,
+      xmlMetadata,
+    );
 
     void this.pollingRuntimeService.refreshController(
       updatedSensor.controllerId,
@@ -57,11 +98,31 @@ export class SensorsService {
   }
 
   async deleteSensor(sensorId: number) {
+    const currentSensor = await this.getSensorById(sensorId);
+    const controller = await this.getControllerForSensor(
+      currentSensor.controllerId,
+    );
+    const currentSensors = await this.sensorsRepository.findByControllerId(
+      currentSensor.controllerId,
+    );
+    const nextSensors = currentSensors.filter(
+      (sensor) => sensor.id !== sensorId,
+    );
+    const xmlMetadata =
+      await this.controllerXmlConfigService.uploadControllerConfig(
+        controller,
+        nextSensors,
+      );
     const deletedSensor = await this.sensorsRepository.deleteSensor(sensorId);
 
     if (!deletedSensor) {
       throw new NotFoundException(`Sensor ${sensorId} was not found`);
     }
+
+    await this.controllersRepository.updateXmlSyncMetadata(
+      deletedSensor.controllerId,
+      xmlMetadata,
+    );
 
     void this.pollingRuntimeService.refreshController(
       deletedSensor.controllerId,
@@ -133,6 +194,17 @@ export class SensorsService {
       !Number.isFinite(register.scaleFactor) ||
       register.scaleFactor <= 0
     );
+  }
+
+  private async getControllerForSensor(controllerId: number) {
+    const controller =
+      await this.controllersRepository.findById(controllerId);
+
+    if (!controller) {
+      throw new NotFoundException(`Controller ${controllerId} was not found`);
+    }
+
+    return controller;
   }
 }
 

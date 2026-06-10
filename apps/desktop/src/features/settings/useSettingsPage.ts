@@ -6,6 +6,7 @@ import {
   useControllers,
   useCreateController,
   useDeleteController,
+  useSyncControllerXml,
   useUpdateController,
 } from "@/hooks/useControllers";
 import {
@@ -25,7 +26,11 @@ import {
   normalizeSensorRegister,
 } from "./sensor-registers";
 import { emptyController, emptySensor } from "./settingsDefaults";
-import { type DeleteConfirmation, type SensorDraft } from "./settings.type";
+import {
+  type DeleteConfirmation,
+  type ResetConfirmation,
+  type SensorDraft,
+} from "./settings.type";
 
 const emptyControllers: Controller[] = [];
 const emptySensors: Sensor[] = [];
@@ -41,6 +46,9 @@ export function useSettingsPage() {
     null,
   );
   const [confirm, setConfirm] = useState<DeleteConfirmation | null>(null);
+  const [resetConfirm, setResetConfirm] = useState<ResetConfirmation | null>(
+    null,
+  );
 
   const controllersQuery = useControllers();
   const sensorsQuery = useSensors();
@@ -57,6 +65,8 @@ export function useSettingsPage() {
 
   const { mutate: deleteController } = useDeleteController();
   const { mutate: updateController } = useUpdateController();
+  const { mutate: syncControllerXml, isPending: isSyncingControllerXml } =
+    useSyncControllerXml();
   const { mutate: createSensor } = useCreateSensor();
   const { mutate: updateSensor } = useUpdateSensor();
   const { mutate: deleteSensor } = useDeleteSensor();
@@ -107,8 +117,9 @@ export function useSettingsPage() {
         pollingIntervalMs: controllerDraft.pollingIntervalMs,
       },
       {
-        onSuccess: () => toast.success("Controlador criado."),
-        onError: () => toast.error("Não foi possível criar o controlador."),
+        onSuccess: () => toast.success("Controlador criado e XML importado."),
+        onError: () =>
+          toast.error("Não foi possível importar o XML do controlador."),
       },
     );
   }
@@ -207,7 +218,15 @@ export function useSettingsPage() {
     if (confirm.kind === "controller") {
       removeController(confirm.id);
     } else {
-      removeSensor(confirm.id);
+      const sensorId = confirm.id;
+      const sensorName = confirm.name;
+
+      setResetConfirm({
+        title: "Atualizar XML do controlador?",
+        description: `Remover "${sensorName}" envia uma nova configuração ao controlador e pode reiniciá-lo.`,
+        confirmLabel: "Remover e sincronizar",
+        onConfirm: () => removeSensor(sensorId),
+      });
     }
 
     setConfirm(null);
@@ -226,22 +245,65 @@ export function useSettingsPage() {
       return;
     }
 
-    updateController(
-      {
-        ...patch,
-        name: patch.name.trim(),
-        model: patch.model.trim(),
-        ipAddress: patch.ipAddress.trim(),
-        site: patch.site.trim(),
+    setResetConfirm({
+      title: "Atualizar XML do controlador?",
+      description:
+        "Salvar alterações envia uma nova configuração ao controlador e pode reiniciá-lo.",
+      confirmLabel: "Salvar e sincronizar",
+      onConfirm: () =>
+        updateController(
+          {
+            ...patch,
+            name: patch.name.trim(),
+            model: patch.model.trim(),
+            ipAddress: patch.ipAddress.trim(),
+            site: patch.site.trim(),
+          },
+          {
+            onSuccess: () => {
+              setEditingControllerId(null);
+              toast.success("Controlador atualizado.");
+            },
+            onError: () =>
+              toast.error("Não foi possível atualizar o controlador."),
+          },
+        ),
+    });
+  }
+
+  function saveSensorWithConfirmation() {
+    setResetConfirm({
+      title: "Atualizar XML do controlador?",
+      description:
+        "Salvar o sensor envia uma nova configuração ao controlador e pode reiniciá-lo.",
+      confirmLabel: "Salvar e sincronizar",
+      onConfirm: editingSensorId !== null ? saveEditSensor : addSensor,
+    });
+  }
+
+  function handleResetConfirm() {
+    const action = resetConfirm?.onConfirm;
+
+    setResetConfirm(null);
+    action?.();
+  }
+
+  function syncSelectedControllerXml() {
+    if (!selected) return;
+
+    syncControllerXml(selected.id, {
+      onSuccess: (result) => {
+        if (result.status === "unchanged") {
+          toast.success("XML já estava sincronizado.");
+          return;
+        }
+
+        toast.success(
+          `XML sincronizado. ${result.sensorsImported} sensores importados.`,
+        );
       },
-      {
-        onSuccess: () => {
-          setEditingControllerId(null);
-          toast.success("Controlador atualizado.");
-        },
-        onError: () => toast.error("Não foi possível atualizar o controlador."),
-      },
-    );
+      onError: () => toast.error("Não foi possível sincronizar o XML."),
+    });
   }
 
   function closeSensorDialog() {
@@ -262,6 +324,8 @@ export function useSettingsPage() {
     isLoading,
     isOffline,
     isStale,
+    isSyncingControllerXml,
+    resetConfirm,
     selected,
     selectedId,
     selectedSensors,
@@ -270,17 +334,20 @@ export function useSettingsPage() {
     addController,
     closeSensorDialog,
     handleConfirm,
+    handleResetConfirm,
     openNewControllerForm,
     openNewSensorDialog,
     saveEditController,
     setConfirm,
     setControllerDraft,
     setEditingControllerId,
+    setResetConfirm,
     setSensorDraft,
     setSelectedId,
     setShowNewController,
     startEditSensor,
-    saveSensor: editingSensorId !== null ? saveEditSensor : addSensor,
+    saveSensor: saveSensorWithConfirmation,
+    syncSelectedControllerXml,
   };
 }
 

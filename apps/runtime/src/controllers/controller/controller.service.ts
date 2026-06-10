@@ -11,6 +11,7 @@ import {
   type NewController,
 } from '@weber-nexus/repository';
 import { PollingRuntimeService } from '../../polling/polling-runtime.service';
+import { ControllerXmlConfigService } from '../xml/controller-xml-config.service';
 
 @Injectable()
 export class ControllersService {
@@ -18,6 +19,7 @@ export class ControllersService {
     private readonly controllersRepository: ControllersRepository,
     private readonly sensorsRepository: SensorsRepository,
     private readonly pollingRuntimeService: PollingRuntimeService,
+    private readonly controllerXmlConfigService: ControllerXmlConfigService,
   ) {}
 
   getAllControllers(): Promise<Controller[]> {
@@ -34,21 +36,67 @@ export class ControllersService {
     return controller;
   }
 
-  postController(controller: NewController): Promise<Controller> {
+  async postController(controller: NewController): Promise<Controller> {
     this.validatePollingInterval(controller.pollingIntervalMs);
 
-    return this.controllersRepository.insertController(controller);
+    const parsedXml =
+      await this.controllerXmlConfigService.downloadControllerConfig(
+        controller.ipAddress,
+      );
+    const newController =
+      await this.controllersRepository.insertControllerWithSensors(
+        controller,
+        parsedXml.sensors,
+        this.controllerXmlConfigService.toXmlMetadata(parsedXml),
+      );
+
+    void this.pollingRuntimeService.refreshController(newController.id);
+
+    return newController;
   }
 
   async updateController(controller: ControllerWrite): Promise<Controller> {
+    if (!Number.isInteger(controller.id)) {
+      throw new BadRequestException('Controller ID is required');
+    }
+
     this.validatePollingInterval(controller.pollingIntervalMs);
 
+    const currentController = await this.getControllerById(controller.id);
+    const currentSensors = await this.sensorsRepository.findByControllerId(
+      controller.id,
+    );
+    const controllerForUpload = {
+      ...currentController,
+      ...controller,
+      name: controller.name.trim(),
+      model: controller.model.trim(),
+      ipAddress: controller.ipAddress.trim(),
+      site: controller.site?.trim() || null,
+    };
+    const xmlMetadata =
+      await this.controllerXmlConfigService.uploadControllerConfig(
+        controllerForUpload,
+        currentSensors,
+      );
     const updatedController =
-      await this.controllersRepository.updateController(controller);
+      await this.controllersRepository.updateController({
+        ...controllerForUpload,
+        ...xmlMetadata,
+      });
 
     void this.pollingRuntimeService.refreshController(updatedController.id);
 
     return updatedController;
+  }
+
+  async syncControllerXml(controllerId: number) {
+    const result =
+      await this.controllerXmlConfigService.syncController(controllerId);
+
+    void this.pollingRuntimeService.refreshController(controllerId);
+
+    return result;
   }
 
   async deleteController(controllerId: number) {
