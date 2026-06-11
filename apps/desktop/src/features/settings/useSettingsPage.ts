@@ -328,6 +328,40 @@ export function useSettingsPage() {
     });
   }
 
+  function downloadSelectedControllerXml() {
+    if (!selected) return;
+
+    if (!selected.xmlConfig?.trim()) {
+      toast.error("Nenhum XML sincronizado para este controlador.");
+      return;
+    }
+
+    const blob = new Blob([selected.xmlConfig], {
+      type: "application/xml;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = xmlDownloadFileName(selected);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    toast.success("Arquivo XML baixado.");
+  }
+
+  function xmlDownloadFileName(controller: Controller): string {
+    const name = controller.name
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    return name ? `WLConfig-${name}.xml` : "WLConfig.xml";
+  }
+
   function closeSensorDialog() {
     setShowNewSensor(false);
     setEditingSensorId(null);
@@ -355,6 +389,7 @@ export function useSettingsPage() {
     closeSensorDialog,
     handleConfirm,
     handleResetConfirm,
+    downloadSelectedControllerXml,
     openNewControllerForm,
     openNewSensorDialog,
     saveEditController,

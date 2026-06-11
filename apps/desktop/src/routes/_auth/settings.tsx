@@ -65,6 +65,7 @@ function AdminPage() {
                 sensors={settings.selectedSensors}
                 onAddSensor={settings.openNewSensorDialog}
                 onDeleteSensor={settings.setConfirm}
+                onDownloadXml={settings.downloadSelectedControllerXml}
                 onEditSensor={settings.startEditSensor}
                 onSyncController={settings.syncSelectedControllerXml}
                 isSyncing={settings.isSyncingControllerXml}

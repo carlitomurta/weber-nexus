@@ -1,4 +1,5 @@
 import {
+  Download,
   Pencil,
   Plus,
   Radio,
@@ -17,6 +18,7 @@ interface ControllerDetailsProps {
   sensors: Sensor[];
   onAddSensor: () => void;
   onDeleteSensor: (confirm: DeleteConfirmation) => void;
+  onDownloadXml: () => void;
   onEditSensor: (sensor: Sensor) => void;
   onSyncController: () => void;
   isSyncing: boolean;
@@ -33,6 +35,7 @@ export function ControllerDetails({
   sensors,
   onAddSensor,
   onDeleteSensor,
+  onDownloadXml,
   onEditSensor,
   onSyncController,
   isSyncing,
@@ -61,16 +64,25 @@ export function ControllerDetails({
               <span className="font-mono">{selected.ipAddress}</span>
             </div>
           </div>
-          <button
-            onClick={onSyncController}
-            disabled={isSyncing}
-            className="inline-flex h-8 items-center gap-1.5 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw
-              className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`}
-            />
-            Sincronizar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onDownloadXml}
+              className="inline-flex h-8 items-center gap-1.5 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted"
+            >
+              <Download className="size-3.5" />
+              Baixar XML
+            </button>
+            <button
+              onClick={onSyncController}
+              disabled={isSyncing}
+              className="inline-flex h-8 items-center gap-1.5 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`}
+              />
+              Sincronizar
+            </button>
+          </div>
         </div>
       </div>
 
