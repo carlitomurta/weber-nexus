@@ -12,6 +12,7 @@
     "url": "https://www.carlitomurta.com/"
   },
   "scripts": {
+    "build": "tsc",
     "dev": "tsc"
   },
   "private": true,

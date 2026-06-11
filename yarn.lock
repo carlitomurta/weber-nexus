@@ -4709,6 +4709,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^7.1.1"
     "@typescript-eslint/parser": "npm:^7.1.1"
     "@vitejs/plugin-react": "npm:^4.2.1"
+    "@weber-nexus/runtime": "workspace:*"
     axios: "npm:^1.16.1"
     class-variance-authority: "npm:^0.7.1"
     clsx: "npm:^2.1.1"
@@ -4789,7 +4790,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@weber-nexus/runtime@workspace:apps/runtime":
+"@weber-nexus/runtime@workspace:*, @weber-nexus/runtime@workspace:apps/runtime":
   version: 0.0.0-use.local
   resolution: "@weber-nexus/runtime@workspace:apps/runtime"
   dependencies:

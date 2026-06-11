@@ -1,10 +1,12 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import type { BrowserWindow as BrowserWindowType } from "electron";
+import electron from "electron";
 import { spawn } from "node:child_process";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const { app, BrowserWindow, ipcMain } = electron;
 
 // Keep GPU disabled while UI is lightweight; revisit when charts/views become GPU-heavy.
 app.disableHardwareAcceleration();
@@ -20,9 +22,17 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, "public")
   : RENDERER_DIST;
 
-let win: BrowserWindow | null;
+const windows = new Set<BrowserWindowType>();
 let runtimeStarted = false;
 let ipcHandlersRegistered = false;
+
+type RuntimeProcessConfig = {
+  command: string;
+  args: string[];
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  stdio: "ignore" | "inherit";
+};
 
 function registerIpcHandlers() {
   if (ipcHandlersRegistered) {
@@ -60,22 +70,15 @@ async function ensureRuntimeProcess() {
     return;
   }
 
-  const workspaceRoot = path.resolve(process.env.APP_ROOT, "../..");
-  const command = process.platform === "win32" ? "yarn.cmd" : "yarn";
-  const stdio = VITE_DEV_SERVER_URL ? "inherit" : "ignore";
+  const runtimeProcess = getRuntimeProcessConfig();
 
   console.info("[Nexus Runtime] Starting background runtime process...");
 
-  const child = spawn(command, ["workspace", "@weber-nexus/runtime", "dev"], {
-    cwd: workspaceRoot,
+  const child = spawn(runtimeProcess.command, runtimeProcess.args, {
+    cwd: runtimeProcess.cwd,
     detached: true,
-    env: {
-      ...process.env,
-      NEXUS_RESOURCES_PATH: app.isPackaged
-        ? process.resourcesPath
-        : path.join(workspaceRoot, "resources"),
-    },
-    stdio,
+    env: runtimeProcess.env,
+    stdio: runtimeProcess.stdio,
     windowsHide: true,
   });
 
@@ -85,6 +88,52 @@ async function ensureRuntimeProcess() {
 
   child.unref();
   runtimeStarted = true;
+}
+
+function getRuntimeProcessConfig(): RuntimeProcessConfig {
+  const workspaceRoot = path.resolve(process.env.APP_ROOT, "../..");
+  const resourcesPath = app.isPackaged
+    ? process.resourcesPath
+    : path.join(workspaceRoot, "resources");
+  const baseEnv = {
+    ...process.env,
+    NEXUS_RESOURCES_PATH: resourcesPath,
+    NEXUS_APP_INSTALL_DIR: app.isPackaged
+      ? path.dirname(process.resourcesPath)
+      : workspaceRoot,
+  };
+
+  if (!app.isPackaged) {
+    return {
+      command: process.platform === "win32" ? "yarn.cmd" : "yarn",
+      args: ["workspace", "@weber-nexus/runtime", "dev"],
+      cwd: workspaceRoot,
+      env: baseEnv,
+      stdio: VITE_DEV_SERVER_URL ? "inherit" : "ignore",
+    };
+  }
+
+  return {
+    command: process.execPath,
+    args: [
+      path.join(
+        process.env.APP_ROOT,
+        "node_modules",
+        "@weber-nexus",
+        "runtime",
+        "dist",
+        "src",
+        "main.js",
+      ),
+    ],
+    cwd: app.getPath("userData"),
+    env: {
+      ...baseEnv,
+      ELECTRON_RUN_AS_NODE: "1",
+      NODE_ENV: "production",
+    },
+    stdio: "ignore",
+  };
 }
 
 function isRuntimeReachable(runtimeUrl: string): Promise<boolean> {
@@ -118,14 +167,17 @@ function createWindow() {
       preload: path.join(__dirname, "preload.mjs"),
     },
   });
-  win = mainWindow;
+  windows.add(mainWindow);
 
   mainWindow.once("ready-to-show", () => {
     if (mainWindow.isDestroyed()) {
       return;
     }
 
-    mainWindow.maximize();
+    if (process.platform !== "linux") {
+      mainWindow.maximize();
+    }
+
     mainWindow.show();
   });
 
@@ -138,16 +190,19 @@ function createWindow() {
   });
 
   mainWindow.on("closed", () => {
-    if (win === mainWindow) {
-      win = null;
-    }
+    windows.delete(mainWindow);
   });
 
   if (VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(VITE_DEV_SERVER_URL);
+    mainWindow.loadURL(VITE_DEV_SERVER_URL).catch((error) => {
+      console.error("[Nexus Desktop] Failed to load dev URL.", error);
+    });
   } else {
-    // win.loadFile('dist/index.html')
-    mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
+    mainWindow
+      .loadFile(path.join(RENDERER_DIST, "index.html"))
+      .catch((error) => {
+        console.error("[Nexus Desktop] Failed to load index file.", error);
+      });
   }
 }
 
@@ -161,7 +216,6 @@ app.on("child-process-gone", (_event, details) => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
-    win = null;
   }
 });
 

@@ -1,5 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createRouter, RouterProvider } from "@tanstack/react-router";
+import {
+  createHashHistory,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 import { dayjsConfig } from "./dayjsConfig";
 import "./index.css";
@@ -8,10 +12,13 @@ import { routeTree } from "./routeTree.gen";
 dayjsConfig.executeDayJsPlugins();
 
 const queryClient = new QueryClient();
+const history =
+  window.location.protocol === "file:" ? createHashHistory() : undefined;
 
 // Set up a Router instance
 const router = createRouter({
   routeTree,
+  ...(history ? { history } : {}),
   context: {
     queryClient,
   },

@@ -25,8 +25,9 @@ dist-*
 # For influx, should be {version}/(windows or linux)/binary
 resources/influxdb/*
 
-# Local influxdb data
+# Local sqlite and influxdb data
 influxdb-data/
+db
 
 # AI Tools temp files
 .playwright-mcp
