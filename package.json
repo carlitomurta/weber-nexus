@@ -14,7 +14,9 @@
   "packageManager": "yarn@4.14.1",
   "scripts": {
     "dev": "node scripts/ensure-node-native-modules.mjs && turbo run dev --filter=!@weber-nexus/runtime",
-    "build": "turbo run build && node scripts/ensure-node-native-modules.mjs",
+    "build": "yarn build:dev",
+    "build:prod": "node scripts/build-system-channel.mjs production",
+    "build:dev": "node scripts/build-system-channel.mjs development",
     "runtime:stop": "yarn workspace @weber-nexus/runtime stop",
     "version:set": "node scripts/set-version.mjs",
     "version:check": "node scripts/set-version.mjs --check"

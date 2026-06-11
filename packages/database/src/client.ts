@@ -29,14 +29,17 @@ export function createDatabase(dbPath: string): Database {
 
   database = drizzle(sqlite, { schema });
   migrate(database, {
-    migrationsFolder: path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "..",
-      "migrations",
-    ),
+    migrationsFolder: migrationsFolder(),
   });
 
   return database;
+}
+
+function migrationsFolder(): string {
+  return (
+    process.env.NEXUS_DATABASE_MIGRATIONS_DIR ??
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations")
+  );
 }
 
 export function getDatabase(): Database {

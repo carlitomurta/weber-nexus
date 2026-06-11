@@ -203,25 +203,36 @@ function getRuntimeProcessConfig(): RuntimeProcessConfig {
 
   return {
     command: process.execPath,
-    args: [
-      path.join(
-        process.env.APP_ROOT,
-        "node_modules",
-        "@weber-nexus",
-        "runtime",
-        "dist",
-        "src",
-        "main.js",
-      ),
-    ],
+    args: [runtimeMainPath()],
     cwd: app.getPath("userData"),
     env: {
       ...baseEnv,
       ELECTRON_RUN_AS_NODE: "1",
+      NEXUS_DATABASE_MIGRATIONS_DIR: path.join(
+        process.env.APP_ROOT,
+        "node_modules",
+        "@weber-nexus",
+        "database",
+        "migrations",
+      ),
       NODE_ENV: "production",
     },
     stdio: "ignore",
   };
+}
+
+function runtimeMainPath(): string {
+  const runtimeDistPath = path.join(
+    process.env.APP_ROOT,
+    "node_modules",
+    "@weber-nexus",
+    "runtime",
+    "dist",
+  );
+  const bundledRuntimePath = path.join(runtimeDistPath, "main.js");
+  const tscRuntimePath = path.join(runtimeDistPath, "src", "main.js");
+
+  return fs.existsSync(bundledRuntimePath) ? bundledRuntimePath : tscRuntimePath;
 }
 
 function isRuntimeReachable(runtimeUrl: string): Promise<boolean> {

@@ -19,6 +19,8 @@
     "!**/*.spec.*",
     "!**/*.map",
     "!**/*.ts",
+    "!node_modules/@serialport/bindings-cpp/build/**",
+    "!node_modules/bcrypt/build/**",
     "!**/tsconfig*.json",
     "!**/eslint.config.mjs",
     "!**/nest-cli.json",
