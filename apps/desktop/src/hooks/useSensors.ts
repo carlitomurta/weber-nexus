@@ -26,6 +26,8 @@ export function useCreateSensor() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["sensors"] });
+      queryClient.invalidateQueries({ queryKey: ["controllers"] });
+      queryClient.invalidateQueries({ queryKey: ["influxdb", "readings"] });
     },
   });
 }
@@ -40,6 +42,8 @@ export function useUpdateSensor() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["sensors"] });
+      queryClient.invalidateQueries({ queryKey: ["controllers"] });
+      queryClient.invalidateQueries({ queryKey: ["influxdb", "readings"] });
     },
   });
 }
@@ -54,6 +58,8 @@ export function useDeleteSensor() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["sensors"] });
+      queryClient.invalidateQueries({ queryKey: ["controllers"] });
+      queryClient.invalidateQueries({ queryKey: ["influxdb", "readings"] });
     },
   });
 }

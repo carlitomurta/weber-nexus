@@ -12,6 +12,7 @@ export function toPollingController(controller: Controller): PollingController {
     ipAddress: controller.ipAddress,
     pollingIntervalMs: controller.pollingIntervalMs,
     isMultihop: controller.isMultihop,
+    protocol: 'host-api',
   };
 }
 

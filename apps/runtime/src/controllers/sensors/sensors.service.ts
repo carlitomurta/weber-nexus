@@ -43,11 +43,11 @@ export class SensorsService {
   }
 
   async postSensor(sensor: NewSensor): Promise<Sensor> {
-    await this.validateSensorConfiguration(sensor);
     const controller = await this.getControllerForSensor(sensor.controllerId);
     const currentSensors = await this.sensorsRepository.findByControllerId(
       sensor.controllerId,
     );
+    this.validateSensorConfiguration(sensor, currentSensors);
     const xmlMetadata = await this.uploadControllerConfigOrThrow(
       controller,
       [...currentSensors, sensor],
@@ -76,11 +76,11 @@ export class SensorsService {
       );
     }
 
-    await this.validateSensorConfiguration(sensor, sensor.id);
     const controller = await this.getControllerForSensor(sensor.controllerId);
     const currentSensors = await this.sensorsRepository.findByControllerId(
       sensor.controllerId,
     );
+    this.validateSensorConfiguration(sensor, currentSensors, sensor.id);
     const nextSensors = currentSensors.map((item) =>
       item.id === sensor.id ? { ...item, ...sensor } : item,
     );
@@ -137,10 +137,11 @@ export class SensorsService {
     return deletedSensor;
   }
 
-  private async validateSensorConfiguration(
+  private validateSensorConfiguration(
     sensor: NewSensor | SensorWrite,
+    currentSensors: ReadonlyArray<Sensor>,
     sensorId?: number,
-  ): Promise<void> {
+  ): void {
     if (
       !Number.isInteger(sensor.nodeId) ||
       sensor.nodeId < 1 ||
@@ -173,17 +174,41 @@ export class SensorsService {
       );
     }
 
-    const conflict = await this.sensorsRepository.findConflictingNodeId(
-      sensor.controllerId,
-      sensor.nodeId,
+    const conflictAddress = this.findConflictingRegisterAddress(
+      sensor,
+      currentSensors,
       sensorId,
     );
 
-    if (conflict) {
+    if (conflictAddress !== undefined) {
       throw new BadRequestException(
-        `ID do sensor ${sensor.nodeId} já está cadastrado no controlador ${sensor.controllerId}`,
+        `Endereço de registrador ${conflictAddress} já está cadastrado no controlador ${sensor.controllerId}`,
       );
     }
+  }
+
+  private findConflictingRegisterAddress(
+    sensor: NewSensor | SensorWrite,
+    currentSensors: ReadonlyArray<Sensor>,
+    sensorId?: number,
+  ): number | undefined {
+    const nextAddresses = new Set(
+      sensor.registers.map((register) => register.address),
+    );
+
+    for (const currentSensor of currentSensors) {
+      if (sensorId !== undefined && currentSensor.id === sensorId) {
+        continue;
+      }
+
+      for (const register of currentSensor.registers) {
+        if (nextAddresses.has(register.address)) {
+          return register.address;
+        }
+      }
+    }
+
+    return undefined;
   }
 
   private async uploadControllerConfigOrThrow(

@@ -14,7 +14,7 @@ jest.mock('../../polling/polling-runtime.service', () => ({
   PollingRuntimeService: class {},
 }));
 
-import type { Controller, NewSensor } from '@weber-nexus/repository';
+import type { Controller, NewSensor, Sensor } from '@weber-nexus/repository';
 import { SensorsService } from './sensors.service';
 
 describe('SensorsService XML upload gate', () => {
@@ -44,7 +44,6 @@ describe('SensorsService XML upload gate', () => {
     findAll: jest.Mock;
     findById: jest.Mock;
     findByControllerId: jest.Mock;
-    findConflictingNodeId: jest.Mock;
     insertSensor: jest.Mock;
     updateSensor: jest.Mock;
     deleteSensor: jest.Mock;
@@ -63,7 +62,6 @@ describe('SensorsService XML upload gate', () => {
       findAll: jest.fn(),
       findById: jest.fn(),
       findByControllerId: jest.fn().mockResolvedValue([]),
-      findConflictingNodeId: jest.fn().mockResolvedValue(undefined),
       insertSensor: jest.fn(),
       updateSensor: jest.fn(),
       deleteSensor: jest.fn(),
@@ -109,6 +107,75 @@ describe('SensorsService XML upload gate', () => {
     );
   });
 
+  it('allows sensors with the same node id when register addresses are different', async () => {
+    const existingSensor = sensorRecord({
+      id: 10,
+      nodeId: 2,
+      name: 'Pump A',
+      registers: [{ name: 'Velocity', address: 33, unit: 'mm/s' }],
+    });
+    const newSensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 2,
+      name: 'Pump B',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [{ name: 'Temperature', address: 34, unit: 'C' }],
+      deletedAt: null,
+    };
+    const insertedSensor = sensorRecord({
+      id: 11,
+      nodeId: 2,
+      name: 'Pump B',
+      registers: newSensor.registers,
+    });
+    sensorsRepository.findByControllerId.mockResolvedValue([existingSensor]);
+    sensorsRepository.insertSensor.mockResolvedValue(insertedSensor);
+    controllerXmlConfigService.uploadControllerConfig.mockResolvedValue({
+      xmlConfig: '<configuration />',
+      xmlConfigChecksum: 'checksum',
+      xmlLastSyncedAt: new Date('2026-06-10T00:00:00.000Z'),
+    });
+
+    await expect(service.postSensor(newSensor)).resolves.toEqual(
+      insertedSensor,
+    );
+    expect(controllerXmlConfigService.uploadControllerConfig).toHaveBeenCalledWith(
+      controller,
+      [existingSensor, newSensor],
+    );
+    expect(sensorsRepository.insertSensor).toHaveBeenCalledWith(newSensor);
+  });
+
+  it('rejects duplicate register addresses on the same controller', async () => {
+    const existingSensor = sensorRecord({
+      id: 10,
+      nodeId: 2,
+      name: 'Pump A',
+      registers: [{ name: 'Velocity', address: 33, unit: 'mm/s' }],
+    });
+    const newSensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 2,
+      name: 'Pump B',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [{ name: 'Temperature', address: 33, unit: 'C' }],
+      deletedAt: null,
+    };
+    sensorsRepository.findByControllerId.mockResolvedValue([existingSensor]);
+
+    await expect(service.postSensor(newSensor)).rejects.toThrow(
+      'Endereço de registrador 33 já está cadastrado',
+    );
+    expect(controllerXmlConfigService.uploadControllerConfig).not.toHaveBeenCalled();
+    expect(sensorsRepository.insertSensor).not.toHaveBeenCalled();
+  });
+
   it('logs XML upload failure and does not delete a sensor locally', async () => {
     const sensor = {
       id: 10,
@@ -143,3 +210,30 @@ describe('SensorsService XML upload gate', () => {
     );
   });
 });
+
+function sensorRecord({
+  id,
+  nodeId,
+  name,
+  registers,
+}: {
+  id: number;
+  nodeId: number;
+  name: string;
+  registers: NewSensor['registers'];
+}): Sensor {
+  return {
+    id,
+    controllerId: 1,
+    nodeId,
+    name,
+    description: null,
+    model: null,
+    location: null,
+    operationalStatus: 'active',
+    registers,
+    deletedAt: null,
+    createdAt: new Date('2026-06-10T00:00:00.000Z'),
+    updatedAt: new Date('2026-06-10T00:00:00.000Z'),
+  };
+}

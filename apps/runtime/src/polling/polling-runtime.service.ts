@@ -34,7 +34,7 @@ export class PollingRuntimeService
     },
     onConnection: (controller) => {
       this.logger.info(
-        `Controlador ${controller.id} (${controller.name}) conectado em ${controller.ipAddress}:502 via Modbus TCP`,
+        `Controlador ${controller.id} (${controller.name}) conectado em ${controller.ipAddress} via ${controller.protocol ?? 'modbus-tcp'}`,
       );
     },
     onData: (result) => this.handlePollingResult(result),

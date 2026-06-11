@@ -68,6 +68,8 @@ type ControllerPollingJob = {
   running: boolean;
 };
 
+const DXM_LOCAL_REGISTER_UNIT_ID = 199;
+
 export class PollingEngine {
   private readonly jobs = new Map<number, ControllerPollingJob>();
 
@@ -139,7 +141,7 @@ export class PollingEngine {
 
     const registerPlan = createControllerRegisterPlan(job.sensors);
     const holdingRegisters = await job.connection.readHoldingRegisters(
-      1,
+      DXM_LOCAL_REGISTER_UNIT_ID,
       registerPlan.map((entry) => entry.register.address),
     );
 

@@ -47,6 +47,15 @@ describe('WLConfig XML helpers', () => {
     );
   });
 
+  it('restores controller encoded line endings while cleaning XML', () => {
+    const raw =
+      'RSP100232,ABCD,<?xml version="1.0"?>\x1F<configuration />EOF';
+
+    expect(cleanWlConfigXml(raw)).toBe(
+      '<?xml version="1.0"?>\n<configuration />',
+    );
+  });
+
   it('parses attributes and maps rules to sensors', () => {
     const parsed = parseWlConfigXml(validXml);
 

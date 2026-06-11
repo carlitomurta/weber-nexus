@@ -2,6 +2,7 @@ import net from 'node:net';
 import {
   chunkBuffer,
   createWlConfigUploadPlan,
+  downloadWlConfigXml,
   encodeXmlForController,
   formatModbusCrc16,
   readControllerLocalRegister,
@@ -194,6 +195,53 @@ describe('controller file transfer upload protocol', () => {
     } finally {
       await server.close();
     }
+  });
+});
+
+describe('controller file transfer download protocol', () => {
+  it('waits for a full chunk before requesting the next chunk', async () => {
+    const received: Buffer[] = [];
+    const server = await startUploadServer((command, index, socket) => {
+      received.push(command);
+
+      if (index === 0) {
+        socket.write('RSP10015');
+        return;
+      }
+
+      if (index === 1) {
+        socket.write('RSP10025,ABCD,he');
+        setTimeout(() => {
+          socket.write('llo');
+        }, 20);
+        return;
+      }
+
+      if (index === 2) {
+        socket.write('RSP10020,ffff,EOF');
+        return;
+      }
+
+      socket.write('RSP1003');
+    });
+
+    try {
+      await expect(
+        downloadWlConfigXml({
+          host: '127.0.0.1',
+          port: server.port,
+          timeoutMs: 1000,
+        }),
+      ).resolves.toBe('RSP10025,ABCD,helloRSP10020,ffff,EOF');
+    } finally {
+      await server.close();
+    }
+
+    expect(received.map(commandText)).toEqual([
+      'CMD1001 WLConfig.xml,0,0,0',
+      'CMD1002 1',
+      'CMD1002 2',
+    ]);
   });
 });
 

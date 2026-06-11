@@ -46,74 +46,36 @@ export async function downloadWlConfigXml(
 ): Promise<string> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const port = options.port ?? CONTROLLER_API_PORT;
-  const socket = new net.Socket();
+  const socket = await connectSocket(options.host, port, timeoutMs);
+  const responseReader = new ControllerResponseReader(socket, timeoutMs);
+  const downloadReader = new ControllerDownloadResponseReader(
+    socket,
+    timeoutMs,
+  );
+  const rawResponses: Buffer[] = [];
 
-  return new Promise((resolve, reject) => {
-    let chunkId = 1;
-    let finished = false;
-    let started = false;
-    let rawResponse = '';
+  try {
+    const openResponse = await writeCommandAndWait(
+      responseReader,
+      socket,
+      `CMD1001 ${WLCONFIG_FILENAME},0,0,0\r\n`,
+    );
+    assertExpectedResponse(openResponse, 'RSP1001');
 
-    const fail = (error: Error): void => {
-      if (finished) return;
-      finished = true;
-      socket.destroy();
-      reject(error);
-    };
-
-    socket.setTimeout(timeoutMs, () => {
-      fail(new Error('Tempo esgotado ao baixar o XML do controlador'));
-    });
-
-    socket.on('error', (error) => {
-      fail(
-        new Error('Erro de conexão ao baixar o XML do controlador', {
-          cause: error,
-        }),
-      );
-    });
-
-    socket.on('data', (data: Buffer) => {
-      if (finished) return;
-
-      rawResponse += data.toString('utf8');
-
-      if (!started) {
-        const trimmed = rawResponse.trimStart();
-
-        if (trimmed.startsWith('RSP1001')) {
-          started = true;
-          socket.write(`CMD1002 ${chunkId}\r\n`);
-          return;
-        }
-
-        if (rawResponse.includes('\n')) {
-          fail(
-            new Error(
-              `Resposta inesperada ao abrir o XML do controlador: ${trimmed}`,
-            ),
-          );
-        }
-
-        return;
-      }
-
-      if (rawResponse.includes('EOF')) {
-        finished = true;
-        socket.write('CMD1003\r\n');
-        socket.end();
-        resolve(rawResponse);
-        return;
-      }
-
-      chunkId += 1;
+    for (let chunkId = 1; ; chunkId += 1) {
       socket.write(`CMD1002 ${chunkId}\r\n`);
-    });
 
-    socket.connect(port, options.host, () => {
-      socket.write(`CMD1001 ${WLCONFIG_FILENAME},0,0,0\r\n`);
-    });
-  });
+      const chunkResponse = await downloadReader.waitForChunkResponse();
+      rawResponses.push(chunkResponse.raw);
+
+      if (chunkResponse.eof) {
+        socket.write('CMD1003\r\n');
+        return Buffer.concat(rawResponses).toString('utf8');
+      }
+    }
+  } finally {
+    socket.end();
+  }
 }
 
 export async function uploadWlConfigXml(
@@ -391,6 +353,153 @@ class ControllerResponseReader {
 
     return response || undefined;
   }
+}
+
+type DownloadChunkResponse = {
+  readonly raw: Buffer;
+  readonly eof: boolean;
+};
+
+class ControllerDownloadResponseReader {
+  private buffered = Buffer.alloc(0);
+
+  constructor(
+    private readonly socket: net.Socket,
+    private readonly timeoutMs: number,
+  ) {}
+
+  waitForChunkResponse(): Promise<DownloadChunkResponse> {
+    return new Promise((resolve, reject) => {
+      let bufferedResponse: DownloadChunkResponse | undefined;
+
+      try {
+        bufferedResponse = this.shiftBufferedChunkResponse();
+      } catch (error) {
+        reject(error);
+        return;
+      }
+
+      if (bufferedResponse) {
+        resolve(bufferedResponse);
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(
+          new Error('Tempo esgotado ao aguardar fragmento do XML baixado'),
+        );
+      }, this.timeoutMs);
+
+      const cleanup = (): void => {
+        clearTimeout(timer);
+        this.socket.off('data', onData);
+        this.socket.off('error', onError);
+      };
+
+      const onData = (data: Buffer): void => {
+        this.buffered = Buffer.concat([this.buffered, data]);
+        let response: DownloadChunkResponse | undefined;
+
+        try {
+          response = this.shiftBufferedChunkResponse();
+        } catch (error) {
+          cleanup();
+          reject(error);
+          return;
+        }
+
+        if (!response) return;
+
+        cleanup();
+        resolve(response);
+      };
+
+      const onError = (error: Error): void => {
+        cleanup();
+        reject(
+          new Error('Erro de conexão durante o download do XML', {
+            cause: error,
+          }),
+        );
+      };
+
+      this.socket.on('data', onData);
+      this.socket.once('error', onError);
+    });
+  }
+
+  private shiftBufferedChunkResponse(): DownloadChunkResponse | undefined {
+    const responseStart = this.buffered.indexOf('RSP1002');
+
+    if (responseStart < 0) return undefined;
+
+    if (responseStart > 0) {
+      this.buffered = this.buffered.subarray(responseStart);
+    }
+
+    const header = readChunkHeader(this.buffered);
+
+    if (!header) return undefined;
+
+    const responseEnd = header.dataStart + header.length;
+    const eofEnd = header.dataStart + 3;
+
+    if (header.length === 0 && this.buffered.length >= eofEnd) {
+      const payload = this.buffered
+        .subarray(header.dataStart, eofEnd)
+        .toString('utf8');
+
+      if (payload !== 'EOF') {
+        throw new Error(
+          `Resposta inesperada ao finalizar download do XML: ${payload}`,
+        );
+      }
+
+      const raw = this.buffered.subarray(0, eofEnd);
+      this.buffered = this.buffered.subarray(eofEnd);
+
+      return {
+        raw,
+        eof: true,
+      };
+    }
+
+    if (this.buffered.length < responseEnd) return undefined;
+
+    const raw = this.buffered.subarray(0, responseEnd);
+    this.buffered = this.buffered.subarray(responseEnd);
+
+    return {
+      raw,
+      eof: false,
+    };
+  }
+}
+
+type DownloadChunkHeader = {
+  readonly length: number;
+  readonly dataStart: number;
+};
+
+function readChunkHeader(buffer: Buffer): DownloadChunkHeader | undefined {
+  const headerMatch = buffer
+    .subarray(0, Math.min(buffer.length, 64))
+    .toString('ascii')
+    .match(/^RSP1002(\d+),([a-fA-F0-9]+),/);
+
+  if (!headerMatch) return undefined;
+
+  const length = Number(headerMatch[1]);
+
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error(`Tamanho inválido do fragmento XML: ${headerMatch[1]}`);
+  }
+
+  return {
+    length,
+    dataStart: headerMatch[0].length,
+  };
 }
 
 function looksLikeControllerResponse(response: string): boolean {

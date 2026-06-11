@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex */
 import type { NewSensor, Sensor } from '@weber-nexus/repository';
 import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser';
 import { createHash, randomUUID } from 'node:crypto';
@@ -51,7 +52,8 @@ export function cleanWlConfigXml(raw: string): string {
   let cleaned = raw
     .replace(/\bEOF\b/g, '')
     .replace(/RSP1002\d+,[a-fA-F0-9]+,/gms, '')
-    // eslint-disable-next-line no-control-regex
+    .replace(/\x1E/g, '\r')
+    .replace(/\x1F/g, '\n')
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   const start = cleaned.indexOf('<?xml');
