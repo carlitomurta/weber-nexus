@@ -5,6 +5,8 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
+import { RuntimeAvailabilityGate } from "./components/RuntimeAvailabilityGate";
+import { DevelopmentDiagnostics } from "./components/DevelopmentDiagnostics";
 import { dayjsConfig } from "./dayjsConfig";
 import "./index.css";
 import { routeTree } from "./routeTree.gen";
@@ -42,7 +44,10 @@ if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <DevelopmentDiagnostics />
+      <RuntimeAvailabilityGate>
+        <RouterProvider router={router} />
+      </RuntimeAvailabilityGate>
     </QueryClientProvider>,
   );
 }

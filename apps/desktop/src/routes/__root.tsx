@@ -92,8 +92,12 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <Toaster richColors position="top-right" />
-      <ReactQueryDevtools buttonPosition="bottom-left" />
-      <TanStackRouterDevtools position="bottom-right" />
+      {import.meta.env.DEV ? (
+        <>
+          <ReactQueryDevtools buttonPosition="bottom-left" />
+          <TanStackRouterDevtools position="bottom-right" />
+        </>
+      ) : null}
     </QueryClientProvider>
   );
 }

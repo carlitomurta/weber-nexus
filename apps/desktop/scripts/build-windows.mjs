@@ -1,10 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { electronBuilderConfigArgs } from "./build-options.mjs";
 
-const nativeModules = [
-  "better-sqlite3",
-  "bcrypt",
-  "@serialport/bindings-cpp",
-];
+const nativeModules = ["better-sqlite3", "bcrypt", "@serialport/bindings-cpp"];
 
 const buildResult = run("yarn", [
   "workspace",
@@ -14,6 +11,7 @@ const buildResult = run("yarn", [
   "--win",
   "nsis",
   "--x64",
+  ...electronBuilderConfigArgs("win"),
 ]);
 
 const rebuildResult = run("yarn", ["rebuild", ...nativeModules]);

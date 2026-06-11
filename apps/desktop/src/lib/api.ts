@@ -1,8 +1,46 @@
 import axios from "axios";
+import type { DesktopDiagnosticInput } from "@/types/diagnostics";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_RUNTIME_API_URL ?? "http://localhost:3000",
 });
+
+let apiIssueReporter: ((diagnostic: DesktopDiagnosticInput) => void) | null =
+  null;
+
+export function setApiIssueReporter(
+  reporter: ((diagnostic: DesktopDiagnosticInput) => void) | null,
+) {
+  apiIssueReporter = reporter;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    apiIssueReporter?.({
+      source: "api",
+      level: "error",
+      audience: "developer",
+      message: "Falha na chamada da API local.",
+      detail: apiDiagnosticDetail(error),
+    });
+
+    return Promise.reject(error);
+  },
+);
+
+export type RuntimeHealthResponse = {
+  status: "ready";
+  timestamp: string;
+};
+
+export async function getRuntimeHealth(): Promise<RuntimeHealthResponse> {
+  const { data } = await api.get<RuntimeHealthResponse>("/runtime/health", {
+    timeout: 1000,
+  });
+
+  return data;
+}
 
 type RuntimeErrorResponse = {
   message?: string | string[];
@@ -45,4 +83,19 @@ function translateHttpClientMessage(message: string): string {
   }
 
   return message;
+}
+
+function apiDiagnosticDetail(error: unknown): string {
+  if (!axios.isAxiosError<RuntimeErrorResponse>(error)) {
+    return error instanceof Error
+      ? (error.stack ?? error.message)
+      : String(error);
+  }
+
+  const method = error.config?.method?.toUpperCase() ?? "GET";
+  const url = error.config?.url ?? "/";
+  const status = error.response?.status ?? "sem resposta";
+  const message = apiErrorMessage(error);
+
+  return `${method} ${url} -> ${status}: ${message}`;
 }

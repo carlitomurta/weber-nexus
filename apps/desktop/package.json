@@ -13,10 +13,13 @@
   "license": "UNLICENSED",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "build": "yarn build:runtime && tsc && vite build && yarn build:windows && yarn build:linux",
+    "build": "yarn build:prod",
+    "build:prod": "node scripts/build-channel.mjs production",
+    "build:dev": "node scripts/build-channel.mjs development",
+    "build:bundle": "yarn build:runtime && tsc && vite build",
     "build:runtime": "yarn workspace @weber-nexus/logger build && yarn workspace @weber-nexus/database dev && yarn workspace @weber-nexus/repository build && yarn workspace @weber-nexus/modbus build && yarn workspace @weber-nexus/polling-engine build && yarn workspace @weber-nexus/runtime build",
     "build:windows": "node scripts/build-windows.mjs",
-    "build:linux": "yarn workspace @weber-nexus/desktop exec electron-builder --linux AppImage deb --x64",
+    "build:linux": "node scripts/build-linux.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "prettier": "prettier . -w"

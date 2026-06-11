@@ -2,6 +2,13 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 
 @Injectable()
 export class RuntimeControlService {
+  health(): { status: 'ready'; timestamp: string } {
+    return {
+      status: 'ready',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   stop(remoteAddress?: string): { stopping: true } {
     if (!isLocalRequest(remoteAddress)) {
       throw new ForbiddenException('Runtime só pode ser parado localmente');

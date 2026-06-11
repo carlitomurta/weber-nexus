@@ -1,9 +1,16 @@
 import type { BrowserWindow as BrowserWindowType } from "electron";
 import electron from "electron";
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type {
+  AppBuildChannel,
+  AppBuildInfo,
+  DesktopDiagnostic,
+  DesktopDiagnosticInput,
+} from "../src/types/diagnostics";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { app, BrowserWindow, ipcMain } = electron;
@@ -23,15 +30,19 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST;
 
 const windows = new Set<BrowserWindowType>();
+const diagnosticHistory: DesktopDiagnostic[] = [];
 let runtimeStarted = false;
 let ipcHandlersRegistered = false;
+let diagnosticSequence = 0;
+
+const MAX_PENDING_DIAGNOSTICS = 100;
 
 type RuntimeProcessConfig = {
   command: string;
   args: string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
-  stdio: "ignore" | "inherit";
+  stdio: "ignore" | "inherit" | ["ignore", "pipe", "pipe"];
 };
 
 function registerIpcHandlers() {
@@ -43,13 +54,21 @@ function registerIpcHandlers() {
     return app.getVersion();
   });
 
+  ipcMain.handle("app:get-build-info", () => appBuildInfo());
+
+  ipcMain.handle("app:get-diagnostics", () => {
+    return developerDiagnosticsEnabled()
+      ? diagnosticHistory.filter((entry) => entry.audience === "developer")
+      : diagnosticHistory.filter((entry) => entry.audience === "operator");
+  });
+
   ipcMain.on("update-window-title", (event, title) => {
     if (typeof title !== "string") return;
 
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
       // Truncate to 100 characters to prevent UI layout abuse
-      win.setTitle(title.substring(0, 100));
+      win.setTitle(windowTitle(title));
     }
   });
 
@@ -65,14 +84,26 @@ async function ensureRuntimeProcess() {
     process.env.VITE_RUNTIME_API_URL ?? process.env.NEXUS_RUNTIME_API_URL;
 
   if (await isRuntimeReachable(runtimeUrl ?? "http://localhost:3000")) {
-    console.info("[Nexus Runtime] Runtime API is already reachable.");
+    publishDeveloperDiagnostic({
+      source: "runtime",
+      level: "info",
+      audience: "developer",
+      message: "Runtime API já está respondendo.",
+      detail: runtimeUrl ?? "http://localhost:3000",
+    });
     runtimeStarted = true;
     return;
   }
 
   const runtimeProcess = getRuntimeProcessConfig();
 
-  console.info("[Nexus Runtime] Starting background runtime process...");
+  publishDeveloperDiagnostic({
+    source: "runtime",
+    level: "info",
+    audience: "developer",
+    message: "Iniciando processo do runtime.",
+    detail: `${runtimeProcess.command} ${runtimeProcess.args.join(" ")}`,
+  });
 
   const child = spawn(runtimeProcess.command, runtimeProcess.args, {
     cwd: runtimeProcess.cwd,
@@ -83,7 +114,62 @@ async function ensureRuntimeProcess() {
   });
 
   child.on("error", (error) => {
-    console.error("[Nexus Runtime] Failed to start runtime process", error);
+    publishDeveloperDiagnostic({
+      source: "runtime",
+      level: "error",
+      audience: "developer",
+      message: "Falha ao iniciar processo do runtime.",
+      detail: diagnosticDetail(error),
+    });
+    publishOperatorFatal(
+      "Runtime local falhou ao iniciar. Reinicie o aplicativo.",
+      "runtime",
+    );
+  });
+
+  child.on("exit", (code, signal) => {
+    publishDeveloperDiagnostic({
+      source: "runtime",
+      level: code === 0 ? "info" : "error",
+      audience: "developer",
+      message: "Processo do runtime encerrou.",
+      detail: `code=${code ?? "null"} signal=${signal ?? "null"}`,
+    });
+
+    if (code !== 0 || signal) {
+      publishOperatorFatal(
+        "Runtime local foi interrompido. Reinicie o aplicativo.",
+        "runtime",
+      );
+    }
+  });
+
+  child.stdout?.on("data", (chunk: Buffer) => {
+    if (VITE_DEV_SERVER_URL) {
+      process.stdout.write(chunk);
+    }
+
+    publishDeveloperDiagnostic({
+      source: "runtime",
+      level: "info",
+      audience: "developer",
+      message: "Saída stdout do runtime.",
+      detail: sanitizeDiagnosticText(chunk.toString("utf8")),
+    });
+  });
+
+  child.stderr?.on("data", (chunk: Buffer) => {
+    if (VITE_DEV_SERVER_URL) {
+      process.stderr.write(chunk);
+    }
+
+    publishDeveloperDiagnostic({
+      source: "runtime",
+      level: "warn",
+      audience: "developer",
+      message: "Saída stderr do runtime.",
+      detail: sanitizeDiagnosticText(chunk.toString("utf8")),
+    });
   });
 
   child.unref();
@@ -109,7 +195,9 @@ function getRuntimeProcessConfig(): RuntimeProcessConfig {
       args: ["workspace", "@weber-nexus/runtime", "dev"],
       cwd: workspaceRoot,
       env: baseEnv,
-      stdio: VITE_DEV_SERVER_URL ? "inherit" : "ignore",
+      stdio: developerDiagnosticsEnabled()
+        ? ["ignore", "pipe", "pipe"]
+        : "ignore",
     };
   }
 
@@ -182,11 +270,22 @@ function createWindow() {
   });
 
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
-    console.error("[Nexus Desktop] Renderer process exited", details);
+    publishDeveloperDiagnostic({
+      source: "desktop",
+      level: "error",
+      audience: "developer",
+      message: "Processo renderer encerrou.",
+      detail: diagnosticDetail(details),
+    });
   });
 
   mainWindow.on("unresponsive", () => {
-    console.error("[Nexus Desktop] Window became unresponsive.");
+    publishDeveloperDiagnostic({
+      source: "desktop",
+      level: "warn",
+      audience: "developer",
+      message: "Janela ficou sem resposta.",
+    });
   });
 
   mainWindow.on("closed", () => {
@@ -195,19 +294,41 @@ function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL).catch((error) => {
-      console.error("[Nexus Desktop] Failed to load dev URL.", error);
+      publishDeveloperDiagnostic({
+        source: "desktop",
+        level: "error",
+        audience: "developer",
+        message: "Falha ao carregar URL de desenvolvimento.",
+        detail: diagnosticDetail(error),
+      });
     });
   } else {
     mainWindow
       .loadFile(path.join(RENDERER_DIST, "index.html"))
       .catch((error) => {
-        console.error("[Nexus Desktop] Failed to load index file.", error);
+        publishDeveloperDiagnostic({
+          source: "desktop",
+          level: "error",
+          audience: "developer",
+          message: "Falha ao carregar arquivo da interface.",
+          detail: diagnosticDetail(error),
+        });
+        publishOperatorFatal(
+          "Interface local falhou ao carregar. Reinicie o aplicativo.",
+          "desktop",
+        );
       });
   }
 }
 
 app.on("child-process-gone", (_event, details) => {
-  console.error("[Nexus Desktop] Child process exited", details);
+  publishDeveloperDiagnostic({
+    source: "desktop",
+    level: "error",
+    audience: "developer",
+    message: "Processo filho do Electron encerrou.",
+    detail: diagnosticDetail(details),
+  });
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -231,3 +352,142 @@ app.whenReady().then(async () => {
   await ensureRuntimeProcess();
   createWindow();
 });
+
+function appBuildInfo(): AppBuildInfo {
+  const channel = appBuildChannel();
+
+  return {
+    channel,
+    isPackaged: app.isPackaged,
+    diagnosticsEnabled: channel === "development",
+  };
+}
+
+function appBuildChannel(): AppBuildChannel {
+  const requested = process.env.NEXUS_BUILD_CHANNEL?.toLowerCase();
+
+  const requestedChannel = normalizeBuildChannel(requested);
+  if (requestedChannel) {
+    return requestedChannel;
+  }
+
+  if (app.isPackaged) {
+    return packageBuildChannel() ?? "production";
+  }
+
+  return "development";
+}
+
+function developerDiagnosticsEnabled(): boolean {
+  return appBuildChannel() === "development";
+}
+
+function windowTitle(title: string): string {
+  const suffix = developerDiagnosticsEnabled() ? " [DEV]" : "";
+  return `${title.substring(0, 100)}${suffix}`;
+}
+
+function publishDeveloperDiagnostic(input: DesktopDiagnosticInput): void {
+  if (!developerDiagnosticsEnabled()) {
+    return;
+  }
+
+  publishDiagnostic(input);
+}
+
+function publishOperatorFatal(
+  message: string,
+  source: DesktopDiagnostic["source"],
+): void {
+  if (developerDiagnosticsEnabled()) {
+    return;
+  }
+
+  publishDiagnostic({
+    source,
+    level: "fatal",
+    audience: "operator",
+    message,
+  });
+}
+
+function publishDiagnostic(input: DesktopDiagnosticInput): void {
+  const diagnostic: DesktopDiagnostic = {
+    ...input,
+    id: `${Date.now()}-${diagnosticSequence++}`,
+    timestamp: new Date().toISOString(),
+    message: sanitizeDiagnosticText(input.message),
+    detail: input.detail ? sanitizeDiagnosticText(input.detail) : undefined,
+  };
+
+  diagnosticHistory.push(diagnostic);
+  diagnosticHistory.splice(
+    0,
+    diagnosticHistory.length - MAX_PENDING_DIAGNOSTICS,
+  );
+
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send("app:diagnostic", diagnostic);
+    }
+  }
+}
+
+function diagnosticDetail(value: unknown): string {
+  if (value instanceof Error) {
+    return value.stack ?? value.message;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function sanitizeDiagnosticText(message: string): string {
+  return [...message]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 ? " " : character;
+    })
+    .join("")
+    .trim();
+}
+
+function packageBuildChannel(): AppBuildChannel | undefined {
+  try {
+    const packageJsonPath = path.join(app.getAppPath(), "package.json");
+    const packageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, "utf8"),
+    ) as {
+      nexusBuildChannel?: unknown;
+    };
+
+    return normalizeBuildChannel(packageJson.nexusBuildChannel);
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeBuildChannel(value: unknown): AppBuildChannel | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (normalized === "development" || normalized === "dev") {
+    return "development";
+  }
+
+  if (normalized === "production" || normalized === "prod") {
+    return "production";
+  }
+
+  return undefined;
+}
