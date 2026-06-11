@@ -15,11 +15,13 @@ import {
 import {
   createWlConfigUploadPlan,
   downloadWlConfigXml,
+  readControllerLocalRegister,
   uploadWlConfigXml,
 } from './controller-file-transfer';
 import {
   buildWlConfigXml,
   cleanWlConfigXml,
+  hasReusableWlConfigFileInfo,
   parseWlConfigXml,
   type ParsedWlConfig,
 } from './wlconfig-xml';
@@ -28,6 +30,11 @@ export type ControllerXmlSyncResult = {
   readonly status: 'synced' | 'unchanged';
   readonly sensorsImported: number;
 };
+
+const READ_MAP_SUCCESS_REGISTER = 10101;
+const UPLOAD_VERIFY_INITIAL_DELAY_MS = 5000;
+const UPLOAD_VERIFY_RETRY_DELAY_MS = 5000;
+const UPLOAD_VERIFY_MAX_ATTEMPTS = 18;
 
 @Injectable()
 export class ControllerXmlConfigService {
@@ -43,6 +50,7 @@ export class ControllerXmlConfigService {
   async downloadControllerConfig(ipAddress: string): Promise<ParsedWlConfig> {
     try {
       const rawXml = await downloadWlConfigXml({ host: ipAddress });
+      this.logger.error(rawXml);
       const cleanedXml = cleanWlConfigXml(rawXml);
 
       return parseWlConfigXml(cleanedXml);
@@ -88,18 +96,22 @@ export class ControllerXmlConfigService {
   }
 
   async uploadControllerConfig(
-    controller: Pick<Controller, 'ipAddress' | 'xmlConfig'>,
+    controller: Pick<Controller, 'ipAddress' | 'model' | 'xmlConfig'>,
     sensors: ReadonlyArray<Sensor | NewSensor>,
   ): Promise<{
     xmlConfig: string;
     xmlConfigChecksum: string;
     xmlLastSyncedAt: Date;
   }> {
-    const xmlConfig = buildWlConfigXml(controller.xmlConfig, sensors);
+    const baseXml = await this.resolveBaseXmlForUpload(controller);
+    const xmlConfig = buildWlConfigXml(baseXml, sensors, {
+      controllerModel: controller.model,
+    });
+    this.logger.debug(xmlConfig);
     const uploadPlan = createWlConfigUploadPlan(xmlConfig.xml);
 
     this.logger.info(
-      `Enviando WLConfig.xml para ${controller.ipAddress}: bytesDeclarados=${uploadPlan.fileSizeBytes} totalBytesFragmentos=${uploadPlan.totalChunkBytes} quantidadeFragmentos=${uploadPlan.chunkCount} tamanhosFragmentos=${uploadPlan.chunkSizes.join(',')}`,
+      `Enviando WLConfig.xml para ${controller.ipAddress}: fileSizeBytes=${uploadPlan.fileSizeBytes} totalChunkBytes=${uploadPlan.totalChunkBytes} chunkCount=${uploadPlan.chunkCount} chunkSizes=${uploadPlan.chunkSizes.join(',')}`,
     );
 
     try {
@@ -112,11 +124,72 @@ export class ControllerXmlConfigService {
       throw new BadGatewayException('Não foi possível enviar o WLConfig.xml');
     }
 
+    this.scheduleUploadVerification(controller.ipAddress);
+
     return {
       xmlConfig: xmlConfig.xml,
       xmlConfigChecksum: xmlConfig.checksum,
       xmlLastSyncedAt: new Date(),
     };
+  }
+
+  private async resolveBaseXmlForUpload(
+    controller: Pick<Controller, 'ipAddress' | 'xmlConfig'>,
+  ): Promise<string | null | undefined> {
+    if (hasReusableWlConfigFileInfo(controller.xmlConfig)) {
+      return controller.xmlConfig;
+    }
+
+    try {
+      const parsed = await this.downloadControllerConfig(controller.ipAddress);
+
+      return parsed.xml;
+    } catch (error) {
+      this.logger.warn(
+        `Não foi possível reaproveitar os metadados XML de ${controller.ipAddress}`,
+        error,
+      );
+
+      return controller.xmlConfig;
+    }
+  }
+
+  private scheduleUploadVerification(ipAddress: string): void {
+    void this.verifyUploadAfterRestart(ipAddress);
+  }
+
+  private async verifyUploadAfterRestart(ipAddress: string): Promise<void> {
+    await sleep(UPLOAD_VERIFY_INITIAL_DELAY_MS);
+
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= UPLOAD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const value = await readControllerLocalRegister(
+          READ_MAP_SUCCESS_REGISTER,
+          {
+            host: ipAddress,
+            timeoutMs: 5000,
+          },
+        );
+
+        this.logger.info(
+          `Registrador virtual ${READ_MAP_SUCCESS_REGISTER} após envio do WLConfig.xml para ${ipAddress}: ${value} sucessos acumulados`,
+        );
+        return;
+      } catch (error) {
+        lastError = error;
+
+        if (attempt < UPLOAD_VERIFY_MAX_ATTEMPTS) {
+          await sleep(UPLOAD_VERIFY_RETRY_DELAY_MS);
+        }
+      }
+    }
+
+    this.logger.warn(
+      `Não foi possível ler o registrador virtual ${READ_MAP_SUCCESS_REGISTER} após envio do WLConfig.xml para ${ipAddress}`,
+      lastError,
+    );
   }
 
   toXmlMetadata(parsed: ParsedWlConfig): {
@@ -136,4 +209,10 @@ export class ControllerXmlConfigService {
       xmlLastSyncedAt: new Date(),
     };
   }
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 }

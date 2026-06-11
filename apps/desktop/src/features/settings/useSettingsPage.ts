@@ -116,12 +116,13 @@ export function useSettingsPage() {
         pollingIntervalMs: controllerDraft.pollingIntervalMs,
       },
       {
-        onSuccess: () => toast.success("Controlador criado e XML importado."),
+        onSuccess: () =>
+          toast.success("Controlador criado e configuração importada."),
         onError: (error) =>
           toast.error(
             apiErrorMessage(
               error,
-              "Não foi possível importar o XML do controlador.",
+              "Não foi possível importar a configuração do controlador.",
             ),
           ),
       },
@@ -235,7 +236,7 @@ export function useSettingsPage() {
       const sensorName = confirm.name;
 
       setResetConfirm({
-        title: "Atualizar XML do controlador?",
+        title: "Atualizar configuração do controlador?",
         description: `Remover "${sensorName}" envia uma nova configuração ao controlador e pode reiniciá-lo.`,
         confirmLabel: "Remover e sincronizar",
         onConfirm: () => removeSensor(sensorId),
@@ -259,7 +260,7 @@ export function useSettingsPage() {
     }
 
     setResetConfirm({
-      title: "Atualizar XML do controlador?",
+      title: "Atualizar configuração do controlador?",
       description:
         "Salvar alterações envia uma nova configuração ao controlador e pode reiniciá-lo.",
       confirmLabel: "Salvar e sincronizar",
@@ -291,7 +292,7 @@ export function useSettingsPage() {
 
   function saveSensorWithConfirmation() {
     setResetConfirm({
-      title: "Atualizar XML do controlador?",
+      title: "Atualizar configuração do controlador?",
       description:
         "Salvar o sensor envia uma nova configuração ao controlador e pode reiniciá-lo.",
       confirmLabel: "Salvar e sincronizar",
@@ -312,17 +313,17 @@ export function useSettingsPage() {
     syncControllerXml(selected.id, {
       onSuccess: (result) => {
         if (result.status === "unchanged") {
-          toast.success("XML já estava sincronizado.");
+          toast.success("O controlador já está sincronizado.");
           return;
         }
 
         toast.success(
-          `XML sincronizado. ${result.sensorsImported} sensores importados.`,
+          `Controlador sincronizado. ${result.sensorsImported} sensores importados.`,
         );
       },
       onError: (error) =>
         toast.error(
-          apiErrorMessage(error, "Não foi possível sincronizar o XML."),
+          apiErrorMessage(error, "Não foi possível sincronizar o controlador."),
         ),
     });
   }

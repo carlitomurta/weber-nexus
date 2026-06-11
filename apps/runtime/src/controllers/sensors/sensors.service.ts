@@ -3,18 +3,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Logger } from '@weber-nexus/logger';
 import {
   ControllersRepository,
+  SensorsRepository,
+  type Controller,
   type NewSensor,
   type Sensor,
   type SensorWrite,
-  SensorsRepository,
 } from '@weber-nexus/repository';
 import { PollingRuntimeService } from '../../polling/polling-runtime.service';
 import { ControllerXmlConfigService } from '../xml/controller-xml-config.service';
 
 @Injectable()
 export class SensorsService {
+  private readonly logger = new Logger(
+    'runtime/controllers/sensors/sensors.service.ts',
+  );
+
   constructor(
     private readonly controllersRepository: ControllersRepository,
     private readonly sensorsRepository: SensorsRepository,
@@ -42,11 +48,11 @@ export class SensorsService {
     const currentSensors = await this.sensorsRepository.findByControllerId(
       sensor.controllerId,
     );
-    const xmlMetadata =
-      await this.controllerXmlConfigService.uploadControllerConfig(controller, [
-        ...currentSensors,
-        sensor,
-      ]);
+    const xmlMetadata = await this.uploadControllerConfigOrThrow(
+      controller,
+      [...currentSensors, sensor],
+      `criar sensor ${sensor.name}`,
+    );
 
     const insertedSensor = await this.sensorsRepository.insertSensor(sensor);
     await this.controllersRepository.updateXmlSyncMetadata(
@@ -78,11 +84,11 @@ export class SensorsService {
     const nextSensors = currentSensors.map((item) =>
       item.id === sensor.id ? { ...item, ...sensor } : item,
     );
-    const xmlMetadata =
-      await this.controllerXmlConfigService.uploadControllerConfig(
-        controller,
-        nextSensors,
-      );
+    const xmlMetadata = await this.uploadControllerConfigOrThrow(
+      controller,
+      nextSensors,
+      `atualizar sensor ${sensor.id}`,
+    );
 
     const updatedSensor = await this.sensorsRepository.updateSensor(sensor);
     await this.controllersRepository.updateXmlSyncMetadata(
@@ -108,11 +114,11 @@ export class SensorsService {
     const nextSensors = currentSensors.filter(
       (sensor) => sensor.id !== sensorId,
     );
-    const xmlMetadata =
-      await this.controllerXmlConfigService.uploadControllerConfig(
-        controller,
-        nextSensors,
-      );
+    const xmlMetadata = await this.uploadControllerConfigOrThrow(
+      controller,
+      nextSensors,
+      `remover sensor ${sensorId}`,
+    );
     const deletedSensor = await this.sensorsRepository.deleteSensor(sensorId);
 
     if (!deletedSensor) {
@@ -140,7 +146,9 @@ export class SensorsService {
       sensor.nodeId < 1 ||
       sensor.nodeId > 247
     ) {
-      throw new BadRequestException('ID do nó deve ser um inteiro de 1 a 247');
+      throw new BadRequestException(
+        'ID do sensor deve ser um inteiro de 1 a 247',
+      );
     }
 
     if (!Array.isArray(sensor.registers) || sensor.registers.length === 0) {
@@ -173,8 +181,27 @@ export class SensorsService {
 
     if (conflict) {
       throw new BadRequestException(
-        `ID do nó ${sensor.nodeId} já está cadastrado no controlador ${sensor.controllerId}`,
+        `ID do sensor ${sensor.nodeId} já está cadastrado no controlador ${sensor.controllerId}`,
       );
+    }
+  }
+
+  private async uploadControllerConfigOrThrow(
+    controller: Controller,
+    sensors: ReadonlyArray<Sensor | NewSensor>,
+    operation: string,
+  ): ReturnType<ControllerXmlConfigService['uploadControllerConfig']> {
+    try {
+      return await this.controllerXmlConfigService.uploadControllerConfig(
+        controller,
+        sensors,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Falha ao enviar XML ao ${operation} no controlador ${controller.id} (${controller.ipAddress})`,
+        error,
+      );
+      throw error;
     }
   }
 

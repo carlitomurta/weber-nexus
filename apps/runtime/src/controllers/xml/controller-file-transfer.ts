@@ -1,4 +1,5 @@
 import net from 'node:net';
+import { crc16modbus } from 'crc';
 
 const WLCONFIG_FILENAME = 'WLConfig.xml';
 const CONTROLLER_API_PORT = 8844;
@@ -7,6 +8,7 @@ const DEFAULT_TIMEOUT_MS = 10000;
 
 export type ControllerFileTransferOptions = {
   readonly host: string;
+  readonly port?: number;
   readonly timeoutMs?: number;
 };
 
@@ -17,10 +19,33 @@ export type WlConfigUploadPlan = {
   readonly totalChunkBytes: number;
 };
 
+export async function readControllerLocalRegister(
+  address: number,
+  options: ControllerFileTransferOptions,
+): Promise<number> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const port = options.port ?? CONTROLLER_API_PORT;
+  const socket = await connectSocket(options.host, port, timeoutMs);
+  const reader = new ControllerResponseReader(socket, timeoutMs);
+
+  try {
+    const response = await writeCommandAndWait(
+      reader,
+      socket,
+      `CMD0001 ${address},1,0,0,0\r\n`,
+    );
+
+    return parseLocalRegisterResponse(response, address);
+  } finally {
+    socket.end();
+  }
+}
+
 export async function downloadWlConfigXml(
   options: ControllerFileTransferOptions,
 ): Promise<string> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const port = options.port ?? CONTROLLER_API_PORT;
   const socket = new net.Socket();
 
   return new Promise((resolve, reject) => {
@@ -85,7 +110,7 @@ export async function downloadWlConfigXml(
       socket.write(`CMD1002 ${chunkId}\r\n`);
     });
 
-    socket.connect(CONTROLLER_API_PORT, options.host, () => {
+    socket.connect(port, options.host, () => {
       socket.write(`CMD1001 ${WLCONFIG_FILENAME},0,0,0\r\n`);
     });
   });
@@ -96,14 +121,16 @@ export async function uploadWlConfigXml(
   options: ControllerFileTransferOptions,
 ): Promise<void> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const socket = await connectSocket(options.host, timeoutMs);
+  const port = options.port ?? CONTROLLER_API_PORT;
+  const socket = await connectSocket(options.host, port, timeoutMs);
+  const reader = new ControllerResponseReader(socket, timeoutMs);
   const upload = createWlConfigUpload(xml);
 
   try {
     const preflightCloseResponse = await writeCommandAndWait(
+      reader,
       socket,
       'CMD1003\r\n',
-      timeoutMs,
     );
 
     if (isApiError(preflightCloseResponse)) {
@@ -114,9 +141,9 @@ export async function uploadWlConfigXml(
     }
 
     const openResponse = await writeCommandAndWait(
+      reader,
       socket,
       `CMD1001 ${WLCONFIG_FILENAME},1,${upload.plan.fileSizeBytes},0\r\n`,
-      timeoutMs,
     );
     assertExpectedResponse(openResponse, 'RSP1001', upload.plan);
 
@@ -128,9 +155,9 @@ export async function uploadWlConfigXml(
         'utf8',
       );
       const response = await writeBufferAndWait(
+        reader,
         socket,
         Buffer.concat([commandPrefix, chunk, Buffer.from('\r\n', 'utf8')]),
-        timeoutMs,
       );
 
       assertExpectedResponse(
@@ -142,9 +169,9 @@ export async function uploadWlConfigXml(
     }
 
     const closeResponse = await writeCommandAndWait(
+      reader,
       socket,
       'CMD1003\r\n',
-      timeoutMs,
     );
     assertExpectedResponse(
       closeResponse,
@@ -214,30 +241,19 @@ export function chunkBuffer(
 }
 
 export function modbusCrc16(buffer: Buffer): number {
-  let crc = 0xffff;
-
-  for (const byte of buffer) {
-    crc ^= byte;
-
-    for (let bit = 0; bit < 8; bit += 1) {
-      const carry = crc & 1;
-      crc >>= 1;
-
-      if (carry) {
-        crc ^= 0xa001;
-      }
-    }
-  }
-
-  return crc & 0xffff;
+  return crc16modbus(buffer);
 }
 
 export function formatModbusCrc16(buffer: Buffer): string {
-  return modbusCrc16(buffer).toString(16).toUpperCase().padStart(4, '0');
+  const crc = modbusCrc16(buffer);
+  const wireOrderCrc = ((crc & 0xff) << 8) | (crc >> 8);
+
+  return wireOrderCrc.toString(16).toUpperCase().padStart(4, '0');
 }
 
 async function connectSocket(
   host: string,
+  port: number,
   timeoutMs: number,
 ): Promise<net.Socket> {
   const socket = new net.Socket();
@@ -261,7 +277,7 @@ async function connectSocket(
       );
     });
 
-    socket.connect(CONTROLLER_API_PORT, host, () => {
+    socket.connect(port, host, () => {
       clearTimeout(timer);
       socket.removeAllListeners('error');
       socket.on('error', () => undefined);
@@ -271,57 +287,120 @@ async function connectSocket(
 }
 
 async function writeCommandAndWait(
+  reader: ControllerResponseReader,
   socket: net.Socket,
   command: string,
-  timeoutMs: number,
 ): Promise<string> {
-  return writeBufferAndWait(socket, Buffer.from(command, 'utf8'), timeoutMs);
+  return writeBufferAndWait(reader, socket, Buffer.from(command, 'utf8'));
 }
 
 async function writeBufferAndWait(
+  reader: ControllerResponseReader,
   socket: net.Socket,
   command: Buffer,
-  timeoutMs: number,
 ): Promise<string> {
-  const response = waitForResponse(socket, timeoutMs);
+  const response = reader.waitForResponse();
   socket.write(command);
   return response;
 }
 
-async function waitForResponse(
-  socket: net.Socket,
-  timeoutMs: number,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('Tempo esgotado ao aguardar resposta do envio do XML'));
-    }, timeoutMs);
+class ControllerResponseReader {
+  private buffered = '';
 
-    const cleanup = (): void => {
-      clearTimeout(timer);
-      socket.off('data', onData);
-      socket.off('error', onError);
-    };
+  constructor(
+    private readonly socket: net.Socket,
+    private readonly timeoutMs: number,
+  ) {}
 
-    const onData = (data: Buffer): void => {
-      cleanup();
-      const response = data.toString('utf8').trim();
-      resolve(response);
-    };
+  waitForResponse(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const bufferedResponse = this.shiftBufferedResponse();
 
-    const onError = (error: Error): void => {
-      cleanup();
-      reject(
-        new Error('Erro de conexão durante o envio do XML do controlador', {
-          cause: error,
-        }),
-      );
-    };
+      if (bufferedResponse) {
+        resolve(bufferedResponse);
+        return;
+      }
 
-    socket.once('data', onData);
-    socket.once('error', onError);
-  });
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(
+          new Error('Tempo esgotado ao aguardar resposta do envio do XML'),
+        );
+      }, this.timeoutMs);
+      let idleTimer: NodeJS.Timeout | undefined;
+
+      const cleanup = (): void => {
+        clearTimeout(timer);
+        if (idleTimer) clearTimeout(idleTimer);
+        this.socket.off('data', onData);
+        this.socket.off('error', onError);
+      };
+
+      const onData = (data: Buffer): void => {
+        this.buffered += data.toString('utf8');
+        const response = this.shiftBufferedResponse();
+
+        if (!response) {
+          if (looksLikeControllerResponse(this.buffered)) {
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+              const idleResponse = this.shiftBufferedRemainder();
+
+              if (!idleResponse) return;
+
+              cleanup();
+              resolve(idleResponse);
+            }, 50);
+          }
+
+          return;
+        }
+
+        cleanup();
+        resolve(response);
+      };
+
+      const onError = (error: Error): void => {
+        cleanup();
+        reject(
+          new Error('Erro de conexão durante o envio do XML do controlador', {
+            cause: error,
+          }),
+        );
+      };
+
+      this.socket.on('data', onData);
+      this.socket.once('error', onError);
+    });
+  }
+
+  private shiftBufferedResponse(): string | undefined {
+    const newlineIndex = this.buffered.indexOf('\n');
+
+    if (newlineIndex < 0) return undefined;
+
+    const response = this.buffered.slice(0, newlineIndex).trim();
+    this.buffered = this.buffered.slice(newlineIndex + 1);
+
+    return response || this.shiftBufferedResponse();
+  }
+
+  private shiftBufferedRemainder(): string | undefined {
+    const response = this.buffered.trim();
+    this.buffered = '';
+
+    return response || undefined;
+  }
+}
+
+function looksLikeControllerResponse(response: string): boolean {
+  const trimmed = response.trim();
+
+  return (
+    /^RSP\d{4}/.test(trimmed) ||
+    trimmed.includes('IPC_PARAMS') ||
+    trimmed.includes('API_NO_MEMORY')
+  );
 }
 
 function assertExpectedResponse(
@@ -356,9 +435,36 @@ function assertExpectedResponse(
 }
 
 function isApiError(response: string): boolean {
-  return response.includes('IPC_PARAMS') || response.includes('API_NO_MEMORY');
+  return (
+    response.includes('IPC_PARAMS') ||
+    response.includes('API_NO_MEMORY') ||
+    /\bAPI_[A-Z_]+\b/.test(response)
+  );
 }
 
 function uploadPlanSummary(plan: WlConfigUploadPlan): string {
   return `bytesDeclarados=${plan.fileSizeBytes} totalBytesFragmentos=${plan.totalChunkBytes} quantidadeFragmentos=${plan.chunkCount} tamanhosFragmentos=${plan.chunkSizes.join(',')}`;
+}
+
+function parseLocalRegisterResponse(response: string, address: number): number {
+  if (isApiError(response)) {
+    throw new Error(
+      `Controlador rejeitou a leitura do registrador: ${response}`,
+    );
+  }
+
+  const match = response.match(/^RSP0001\s*(\d+)\s*,\s*(-?\d+)/);
+
+  if (!match) {
+    throw new Error(`Resposta inesperada ao ler registrador: ${response}`);
+  }
+
+  const responseAddress = Number(match[1]);
+  const value = Number(match[2]);
+
+  if (responseAddress !== address || !Number.isFinite(value)) {
+    throw new Error(`Resposta inválida ao ler registrador: ${response}`);
+  }
+
+  return value;
 }

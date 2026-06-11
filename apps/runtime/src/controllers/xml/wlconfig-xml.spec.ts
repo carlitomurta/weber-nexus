@@ -3,6 +3,9 @@ import { XMLValidator } from 'fast-xml-parser';
 import {
   buildWlConfigXml,
   cleanWlConfigXml,
+  formatWlConfigTimestamp,
+  hasReusableWlConfigFileInfo,
+  hasWlConfigFileInfo,
   parseWlConfigXml,
 } from './wlconfig-xml';
 
@@ -16,6 +19,24 @@ const validXml = `<?xml version="1.0" encoding="utf-8"?>
     <rule count="2" default="0" localreg="1" mask="0" maxfail="0" name="Node 1" offset="0" poll="1" remfmt="int" remreg="17" remtype="hold_reg" scale="0" swapped="0" unit="1" />
   </rtu_read>
 </configuration>`;
+
+const xmlWithFileInfo = `<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <file_info>
+    <info device="DXM1200" filename="WLConfig.xml" guid="00000000-0000-0000-0000-000000000000" os="BannerOS" osversion="1.2.3" software="DXM Configurator" solution="Factory" timestamp="" version="4.20.0.0" />
+  </file_info>
+  <local_regs />
+  <rtu_read />
+</configuration>`;
+
+const reusableXmlWithFileInfo = xmlWithFileInfo.replace(
+  'guid="00000000-0000-0000-0000-000000000000"',
+  'guid="11111111-2222-3333-4444-555555555555"',
+);
+const syntheticXmlWithFileInfo = reusableXmlWithFileInfo.replace(
+  'os="BannerOS"',
+  'os="Nexus"',
+);
 
 describe('WLConfig XML helpers', () => {
   it('cleans raw controller responses into XML', () => {
@@ -95,5 +116,41 @@ describe('WLConfig XML helpers', () => {
     expect(result.xml).toContain('scale_using="1000"');
     expect(result.xml).toContain('count="2"');
     expect(parsed.sensors[0].registers).toHaveLength(2);
+  });
+
+  it('updates file info using controller model and upload timestamp', () => {
+    const result = buildWlConfigXml(xmlWithFileInfo, [], {
+      controllerModel: 'DXM700',
+      guid: '11111111-2222-3333-4444-555555555555',
+      now: new Date('2026-06-10T13:45:06.000Z'),
+    });
+
+    expect(result.xml).toContain('device="DXM700"');
+    expect(result.xml).toContain(
+      'guid="11111111-2222-3333-4444-555555555555"',
+    );
+    expect(result.xml).toContain('os="BannerOS"');
+    expect(result.xml).toContain('osversion="1.2.3"');
+    expect(result.xml).toContain('software="DXM Configurator"');
+    expect(result.xml).toContain('solution="Factory"');
+    expect(result.xml).toContain('version="4.20.0.0"');
+    expect(result.xml).toContain('timestamp="10/06/2026 13:45:06"');
+  });
+
+  it('detects XML snapshots with controller file info', () => {
+    expect(hasWlConfigFileInfo(xmlWithFileInfo)).toBe(true);
+    expect(hasWlConfigFileInfo('<configuration />')).toBe(false);
+  });
+
+  it('does not reuse synthetic Nexus template metadata', () => {
+    expect(hasReusableWlConfigFileInfo(reusableXmlWithFileInfo)).toBe(true);
+    expect(hasReusableWlConfigFileInfo(syntheticXmlWithFileInfo)).toBe(false);
+    expect(hasReusableWlConfigFileInfo(xmlWithFileInfo)).toBe(false);
+  });
+
+  it('formats WLConfig timestamps in UTC', () => {
+    expect(formatWlConfigTimestamp(new Date('2026-01-02T03:04:05.000Z'))).toBe(
+      '02/01/2026 03:04:05',
+    );
   });
 });

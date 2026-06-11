@@ -1,9 +1,11 @@
 import type { NewSensor, Sensor } from '@weber-nexus/repository';
 import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_WLCONFIG_TEMPLATE_XML } from './wlconfig-template';
 
 const ATTRIBUTE_PREFIX = '@_';
+const WLCONFIG_FILENAME = 'WLConfig.xml';
+const ZERO_GUID = '00000000-0000-0000-0000-000000000000';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -30,6 +32,12 @@ export type ParsedWlConfig = {
   readonly checksum: string;
   readonly document: WlConfigDocument;
   readonly sensors: Omit<NewSensor, 'controllerId'>[];
+};
+
+export type WlConfigBuildOptions = {
+  readonly controllerModel?: string;
+  readonly guid?: string;
+  readonly now?: Date;
 };
 
 export class WlConfigXmlError extends Error {
@@ -88,10 +96,13 @@ export function parseWlConfigXml(xml: string): ParsedWlConfig {
 export function buildWlConfigXml(
   baseXml: string | null | undefined,
   sensors: ReadonlyArray<Sensor | NewSensor>,
+  options: WlConfigBuildOptions = {},
 ): { xml: string; checksum: string } {
   const document = parseBaseWlConfigDocument(baseXml);
   const configuration = document.configuration;
   const { localRegisters, rules } = buildLocalRegistersAndRules(sensors);
+
+  applyFileInfoMetadata(document, options);
 
   configuration.local_regs =
     localRegisters.length > 0 ? { reg: localRegisters } : {};
@@ -109,6 +120,41 @@ export function buildWlConfigXml(
 
 export function hashWlConfigXml(xml: string): string {
   return createHash('sha256').update(xml, 'utf8').digest('hex');
+}
+
+export function hasWlConfigFileInfo(xml: string | null | undefined): boolean {
+  try {
+    return xml?.trim()
+      ? readFileInfo(parseWlConfigXml(xml).document) !== undefined
+      : false;
+  } catch {
+    return false;
+  }
+}
+
+export function hasReusableWlConfigFileInfo(
+  xml: string | null | undefined,
+): boolean {
+  try {
+    if (!xml?.trim()) return false;
+
+    const info = readFileInfo(parseWlConfigXml(xml).document);
+
+    return info !== undefined && !isSyntheticFileInfo(info);
+  } catch {
+    return false;
+  }
+}
+
+export function formatWlConfigTimestamp(date: Date): string {
+  const day = padDatePart(date.getUTCDate());
+  const month = padDatePart(date.getUTCMonth() + 1);
+  const year = date.getUTCFullYear();
+  const hour = padDatePart(date.getUTCHours());
+  const minute = padDatePart(date.getUTCMinutes());
+  const second = padDatePart(date.getUTCSeconds());
+
+  return `${day}/${month}/${year} ${hour}:${minute}:${second}`;
 }
 
 function validateWlConfigXml(xml: string): void {
@@ -136,6 +182,66 @@ function parseBaseWlConfigDocument(
   }
 
   return parseWlConfigXml(DEFAULT_WLCONFIG_TEMPLATE_XML).document;
+}
+
+function applyFileInfoMetadata(
+  document: WlConfigDocument,
+  options: WlConfigBuildOptions,
+): void {
+  const info = ensureFileInfo(document);
+  const controllerModel = options.controllerModel?.trim();
+  const currentGuid = readStringAttribute(info, 'guid');
+
+  if (controllerModel) {
+    info[`${ATTRIBUTE_PREFIX}device`] = controllerModel;
+  }
+
+  info[`${ATTRIBUTE_PREFIX}filename`] = WLCONFIG_FILENAME;
+
+  if (!currentGuid || currentGuid === ZERO_GUID) {
+    info[`${ATTRIBUTE_PREFIX}guid`] = options.guid ?? randomUUID();
+  }
+
+  info[`${ATTRIBUTE_PREFIX}timestamp`] = formatWlConfigTimestamp(
+    options.now ?? new Date(),
+  );
+}
+
+function ensureFileInfo(document: WlConfigDocument): Record<string, unknown> {
+  let fileInfo = asRecord(document.configuration.file_info);
+
+  if (fileInfo === undefined) {
+    fileInfo = {};
+    document.configuration.file_info = fileInfo;
+  }
+
+  let info = asRecord(fileInfo.info);
+
+  if (info === undefined) {
+    info = {};
+    fileInfo.info = info;
+  }
+
+  return info;
+}
+
+function readFileInfo(
+  document: WlConfigDocument,
+): Record<string, unknown> | undefined {
+  return asRecord(asRecord(document.configuration.file_info)?.info);
+}
+
+function isSyntheticFileInfo(info: Record<string, unknown>): boolean {
+  return (
+    readStringAttribute(info, 'guid') === ZERO_GUID ||
+    readStringAttribute(info, 'os') === 'Nexus' ||
+    readStringAttribute(info, 'osversion') === 'Nexus' ||
+    readStringAttribute(info, 'software') === 'Nexus'
+  );
+}
+
+function padDatePart(value: number): string {
+  return String(value).padStart(2, '0');
 }
 
 function sensorsFromWlConfigDocument(

@@ -2,9 +2,10 @@ jest.mock('@weber-nexus/repository', () => ({
   ControllersRepository: class {},
   SensorsRepository: class {},
 }));
+const mockLoggerError = jest.fn();
 jest.mock('@weber-nexus/logger', () => ({
   Logger: class {
-    error = jest.fn();
+    error = mockLoggerError;
     info = jest.fn();
     warn = jest.fn();
   },
@@ -53,6 +54,7 @@ describe('SensorsService XML upload gate', () => {
   let service: SensorsService;
 
   beforeEach(() => {
+    mockLoggerError.mockClear();
     controllersRepository = {
       findById: jest.fn().mockResolvedValue(controller),
       updateXmlSyncMetadata: jest.fn(),
@@ -101,5 +103,43 @@ describe('SensorsService XML upload gate', () => {
 
     await expect(service.postSensor(sensor)).rejects.toThrow('Falha no envio');
     expect(sensorsRepository.insertSensor).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.stringContaining('Falha ao enviar XML ao criar sensor Pump'),
+      expect.any(Error),
+    );
+  });
+
+  it('logs XML upload failure and does not delete a sensor locally', async () => {
+    const sensor = {
+      id: 10,
+      controllerId: 1,
+      nodeId: 2,
+      name: 'Pump',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [
+        {
+          name: 'Velocity',
+          address: 33,
+          unit: 'mm/s',
+        },
+      ],
+      deletedAt: null,
+      createdAt: new Date('2026-06-10T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-10T00:00:00.000Z'),
+    };
+    sensorsRepository.findById.mockResolvedValue(sensor);
+    sensorsRepository.findByControllerId.mockResolvedValue([sensor]);
+
+    await expect(service.deleteSensor(sensor.id)).rejects.toThrow(
+      'Falha no envio',
+    );
+    expect(sensorsRepository.deleteSensor).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.stringContaining('Falha ao enviar XML ao remover sensor 10'),
+      expect.any(Error),
+    );
   });
 });

@@ -33,6 +33,7 @@
     "@weber-nexus/logger": "workspace:*",
     "@weber-nexus/polling-engine": "workspace:*",
     "@weber-nexus/repository": "workspace:*",
+    "crc": "^4.3.2",
     "fast-xml-parser": "^5.8.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
