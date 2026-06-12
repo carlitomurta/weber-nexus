@@ -153,4 +153,23 @@ export class SensorsRepository {
         .run();
     });
   }
+
+  async updateOperationalStatusByControllerId(
+    controllerId: number,
+    operationalStatus: string,
+  ): Promise<void> {
+    await this.db
+      .update(sensors)
+      .set({
+        operationalStatus,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(sensors.controllerId, controllerId),
+          isNull(sensors.deletedAt),
+        ),
+      )
+      .run();
+  }
 }

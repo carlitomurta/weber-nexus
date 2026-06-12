@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  OnApplicationBootstrap,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import { Logger } from '@weber-nexus/logger';
 import type { ControllerPollingResult } from '@weber-nexus/polling-engine';
 import {
@@ -6,6 +10,7 @@ import {
   InfluxWriteQueueRepository,
   SensorsRepository,
   type InfluxConfig,
+  type InfluxWriteQueueItem,
 } from '@weber-nexus/repository';
 import type { InfluxSensorReading } from './influxdb-telemetry.schema';
 import { buildSensorReadingsLineProtocol } from './influxdb-telemetry.schema';
@@ -17,14 +22,21 @@ import {
 } from './sql/sensor-readings.sql';
 
 const QUEUE_DRAIN_LIMIT = 25;
+const QUEUE_DRAIN_INTERVAL_MS = 30_000;
+const QUEUE_RETRY_INITIAL_DELAY_MS = 5_000;
+const QUEUE_RETRY_MAX_DELAY_MS = 300_000;
 const INFLUX_QUERY_RESULT_CAP = 300;
 const QUERY_REGISTER_BATCH_SIZE = 25;
 
 export type InfluxReadingsRange = '2y' | '1y' | '6m' | '1w';
 
 @Injectable()
-export class InfluxdbTelemetryService {
+export class InfluxdbTelemetryService
+  implements OnApplicationBootstrap, OnApplicationShutdown
+{
   private readonly logger = new Logger('runtime/influxdb-telemetry.service.ts');
+  private queueDrainTimer: NodeJS.Timeout | undefined;
+  private queueDrainRunning = false;
 
   constructor(
     private readonly influxConfigsRepository: InfluxConfigsRepository,
@@ -32,6 +44,22 @@ export class InfluxdbTelemetryService {
     private readonly sensorsRepository: SensorsRepository,
     private readonly telemetryRepository: InfluxdbTelemetryRepository,
   ) {}
+
+  onApplicationBootstrap(): void {
+    void this.drainQueueWithDefaultConfig();
+    this.queueDrainTimer = setInterval(
+      () => void this.drainQueueWithDefaultConfig(),
+      QUEUE_DRAIN_INTERVAL_MS,
+    );
+    this.queueDrainTimer.unref();
+  }
+
+  onApplicationShutdown(): void {
+    if (!this.queueDrainTimer) return;
+
+    clearInterval(this.queueDrainTimer);
+    this.queueDrainTimer = undefined;
+  }
 
   async writePollingResult(result: ControllerPollingResult): Promise<void> {
     const config = await this.influxConfigsRepository.ensureDefault();
@@ -88,10 +116,34 @@ export class InfluxdbTelemetryService {
   }
 
   private async drainQueue(config: InfluxConfig): Promise<void> {
+    if (this.queueDrainRunning) return;
+
+    this.queueDrainRunning = true;
+
+    try {
+      await this.drainQueueItems(config);
+    } finally {
+      this.queueDrainRunning = false;
+    }
+  }
+
+  private async drainQueueWithDefaultConfig(): Promise<void> {
+    try {
+      await this.drainQueue(await this.influxConfigsRepository.ensureDefault());
+    } catch (error) {
+      this.logger.warn('Fila de telemetria não pôde ser drenada.', error);
+    }
+  }
+
+  private async drainQueueItems(config: InfluxConfig): Promise<void> {
     const pending =
       await this.influxWriteQueueRepository.findPending(QUEUE_DRAIN_LIMIT);
 
     for (const item of pending) {
+      if (!isQueueItemReady(item, new Date())) {
+        continue;
+      }
+
       try {
         await this.telemetryRepository.writeLineProtocol(
           config,
@@ -188,4 +240,15 @@ function cursorAfter(readings: InfluxSensorReading[]): Date | undefined {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isQueueItemReady(item: InfluxWriteQueueItem, now: Date): boolean {
+  if (item.attemptCount <= 0 || !item.lastAttemptAt) return true;
+
+  const retryDelay = Math.min(
+    QUEUE_RETRY_INITIAL_DELAY_MS * 2 ** (item.attemptCount - 1),
+    QUEUE_RETRY_MAX_DELAY_MS,
+  );
+
+  return now.getTime() - item.lastAttemptAt.getTime() >= retryDelay;
 }

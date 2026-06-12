@@ -28,13 +28,12 @@ export function buildSensorPayload(
       !Number.isInteger(register.address) ||
       register.address < firstAddress ||
       register.address > lastAddress ||
-      isInvalidRegisterScale(register) ||
-      (!register.isHealthCheck && !register.unit.trim()),
+      isInvalidRegisterScale(register),
   );
 
   if (invalidRegister) {
     return {
-      error: `Registros do sensor ${draft.nodeId} devem ficar entre ${firstAddress} e ${lastAddress}.`,
+      error: `Registros do nó ${draft.nodeId} devem ficar entre ${firstAddress} e ${lastAddress}.`,
     };
   }
 

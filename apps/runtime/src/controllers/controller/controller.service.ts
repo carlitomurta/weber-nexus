@@ -12,6 +12,7 @@ import {
 } from '@weber-nexus/repository';
 import { PollingRuntimeService } from '../../polling/polling-runtime.service';
 import { ControllerXmlConfigService } from '../xml/controller-xml-config.service';
+import type { UpdateControllerDto } from './dto/controller.dto';
 
 @Injectable()
 export class ControllersService {
@@ -55,7 +56,7 @@ export class ControllersService {
     return newController;
   }
 
-  async updateController(controller: ControllerWrite): Promise<Controller> {
+  async updateController(controller: UpdateControllerDto): Promise<Controller> {
     if (!Number.isInteger(controller.id)) {
       throw new BadRequestException('ID do controlador é obrigatório');
     }

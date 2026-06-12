@@ -38,12 +38,7 @@ export class PollingRuntimeService
       );
     },
     onData: (result) => this.handlePollingResult(result),
-    onError: (error, controller) => {
-      this.logger.error(
-        `Falha na coleta do controlador ID ${controller.id} (${controller.name}) IP ${controller.ipAddress}`,
-        error,
-      );
-    },
+    onError: (error, controller) => this.handlePollingError(error, controller),
   });
 
   constructor(
@@ -123,7 +118,40 @@ export class PollingRuntimeService
     result: ControllerPollingResult,
   ): Promise<void> {
     this.logPollingResult(result);
+    await this.markControllerPollingStatus(result.controller.id, 'active');
     await this.influxdbTelemetryService.writePollingResult(result);
+  }
+
+  private async handlePollingError(
+    error: unknown,
+    controller: ControllerPollingResult['controller'],
+  ): Promise<void> {
+    this.logger.error(
+      `Falha na coleta do controlador ID ${controller.id} (${controller.name}) IP ${controller.ipAddress}`,
+      error,
+    );
+    await this.markControllerPollingStatus(controller.id, 'offline');
+  }
+
+  private async markControllerPollingStatus(
+    controllerId: number,
+    operationalStatus: 'active' | 'offline',
+  ): Promise<void> {
+    try {
+      await this.controllersRepository.updateOperationalStatus(
+        controllerId,
+        operationalStatus,
+      );
+      await this.sensorsRepository.updateOperationalStatusByControllerId(
+        controllerId,
+        operationalStatus,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Falha ao atualizar status operacional do controlador ${controllerId}`,
+        error,
+      );
+    }
   }
 
   private logPollingResult(result: ControllerPollingResult): void {

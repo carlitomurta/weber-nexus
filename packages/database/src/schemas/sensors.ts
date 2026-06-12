@@ -6,6 +6,7 @@ import { controllers } from "./controllers.js";
 export type SensorRegister = {
   name: string;
   address: number;
+  localRegisterNumber?: number;
   scaleType?: "multiply" | "divide";
   scaleFactor?: number;
   unit: string;

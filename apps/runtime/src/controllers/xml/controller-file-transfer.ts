@@ -375,7 +375,7 @@ class ControllerDownloadResponseReader {
       try {
         bufferedResponse = this.shiftBufferedChunkResponse();
       } catch (error) {
-        reject(error);
+        reject(toError(error));
         return;
       }
 
@@ -405,7 +405,7 @@ class ControllerDownloadResponseReader {
           response = this.shiftBufferedChunkResponse();
         } catch (error) {
           cleanup();
-          reject(error);
+          reject(toError(error));
           return;
         }
 
@@ -576,4 +576,10 @@ function parseLocalRegisterResponse(response: string, address: number): number {
   }
 
   return value;
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error
+    ? error
+    : new Error(`Erro inesperado na transferência XML: ${String(error)}`);
 }

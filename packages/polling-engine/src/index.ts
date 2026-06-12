@@ -24,6 +24,7 @@ export type PollingSensor = {
 export type PollingSensorRegister = {
   name: string;
   address: number;
+  localRegisterNumber?: number;
   scaleType?: "multiply" | "divide";
   scaleFactor?: number;
   unit: string;
@@ -51,7 +52,10 @@ export type ControllerPollingResult = {
 export type PollingEngineOptions = {
   onConnection?: (controller: PollingController) => void;
   onData?: (result: ControllerPollingResult) => void | Promise<void>;
-  onError?: (error: unknown, controller: PollingController) => void;
+  onError?: (
+    error: unknown,
+    controller: PollingController,
+  ) => void | Promise<void>;
   retry?: {
     attempts?: number;
     initialDelayMs?: number;
@@ -124,7 +128,7 @@ export class PollingEngine {
     try {
       await this.runWithRetry(job, () => this.readController(job));
     } catch (error) {
-      this.options.onError?.(error, job.controller);
+      await this.options.onError?.(error, job.controller);
       await job.connection.close();
       job.connectionLogged = false;
     } finally {
@@ -142,7 +146,7 @@ export class PollingEngine {
     const registerPlan = createControllerRegisterPlan(job.sensors);
     const holdingRegisters = await job.connection.readHoldingRegisters(
       DXM_LOCAL_REGISTER_UNIT_ID,
-      registerPlan.map((entry) => entry.register.address),
+      registerPlan.map((entry) => entry.localRegisterNumber),
     );
 
     const readsByKey = new Map<string, SensorRegisterPollingResult>();
@@ -234,53 +238,77 @@ export class PollingEngine {
 type ControllerRegisterPlanEntry = {
   sensor: PollingSensor;
   register: PollingSensorRegister;
+  localRegisterNumber: number;
 };
 
 function createControllerRegisterPlan(
   sensors: PollingSensor[],
 ): ControllerRegisterPlanEntry[] {
-  const entries = sensors.flatMap((sensor) =>
-    sensor.registers.map((register) => ({
-      sensor,
-      register,
-    })),
-  );
-  const duplicateAddresses = findDuplicateAddresses(entries);
+  const orderedEntries = sensors
+    .flatMap((sensor) =>
+      sensor.registers.map((register) => ({
+        sensor,
+        register,
+      })),
+    )
+    .sort((a, b) => {
+      if (a.register.address !== b.register.address) {
+        return a.register.address - b.register.address;
+      }
+
+      return a.sensor.id - b.sensor.id;
+    });
+  const entries = orderedEntries.map((entry, index) => ({
+    ...entry,
+    localRegisterNumber: normalizedLocalRegisterNumber(entry.register, index),
+  }));
+  const duplicateAddresses = findDuplicateLocalRegisters(entries);
 
   if (duplicateAddresses.length > 0) {
     throw new Error(
-      `Configuração duplicada de endereço de registrador holding: ${duplicateAddresses.join(", ")}`,
+      `Configuração duplicada de registrador local holding: ${duplicateAddresses.join(", ")}`,
     );
   }
 
-  return entries.sort((a, b) => {
-    if (a.register.address !== b.register.address) {
-      return a.register.address - b.register.address;
-    }
-
-    return a.sensor.id - b.sensor.id;
-  });
+  return entries.sort((a, b) => a.localRegisterNumber - b.localRegisterNumber);
 }
 
-function findDuplicateAddresses(
+function findDuplicateLocalRegisters(
   entries: ControllerRegisterPlanEntry[],
 ): number[] {
   const seen = new Set<number>();
   const duplicates = new Set<number>();
 
   for (const entry of entries) {
-    if (seen.has(entry.register.address)) {
-      duplicates.add(entry.register.address);
+    if (seen.has(entry.localRegisterNumber)) {
+      duplicates.add(entry.localRegisterNumber);
       continue;
     }
 
-    seen.add(entry.register.address);
+    seen.add(entry.localRegisterNumber);
   }
 
   return [...duplicates].sort((a, b) => a - b);
 }
 
-function registerPlanKey(entry: ControllerRegisterPlanEntry): string {
+function normalizedLocalRegisterNumber(
+  register: PollingSensorRegister,
+  fallbackIndex: number,
+): number {
+  if (
+    register.localRegisterNumber !== undefined &&
+    Number.isInteger(register.localRegisterNumber) &&
+    register.localRegisterNumber > 0
+  ) {
+    return register.localRegisterNumber;
+  }
+
+  return fallbackIndex + 1;
+}
+
+function registerPlanKey(
+  entry: Pick<ControllerRegisterPlanEntry, "sensor" | "register">,
+): string {
   return `${entry.sensor.id}:${entry.register.address}`;
 }
 

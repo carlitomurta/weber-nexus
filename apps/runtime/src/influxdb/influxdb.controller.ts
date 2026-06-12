@@ -1,25 +1,19 @@
-import { Controller, Get, ParseIntPipe, Query } from '@nestjs/common';
-import {
-  InfluxdbTelemetryService,
-  type InfluxReadingsRange,
-} from './influxdb-telemetry.service';
-import { InfluxReadingsRangePipe } from './pipes/influx-readings-range.pipe';
+import { Controller, Get, Query } from '@nestjs/common';
+import { parseInfluxReadingsQueryDto } from './dto/influx-readings-query.dto';
+import { InfluxdbTelemetryService } from './influxdb-telemetry.service';
 
 @Controller('influxdb')
 export class InfluxdbController {
   constructor(private readonly telemetryService: InfluxdbTelemetryService) {}
 
   @Get('readings')
-  findRecentReadings(
-    @Query('range', InfluxReadingsRangePipe) range: InfluxReadingsRange,
-    @Query('controllerId', new ParseIntPipe({ optional: true }))
-    controllerId?: number,
-    @Query('includeHealth') includeHealth?: string,
-  ) {
+  findRecentReadings(@Query() query: Record<string, unknown>) {
+    const dto = parseInfluxReadingsQueryDto(query);
+
     return this.telemetryService.findRecentReadings(
-      range,
-      controllerId,
-      includeHealth === 'true',
+      dto.range,
+      dto.controllerId,
+      dto.includeHealth,
     );
   }
 }

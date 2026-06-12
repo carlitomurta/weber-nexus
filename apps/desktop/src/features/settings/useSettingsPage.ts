@@ -291,6 +291,15 @@ export function useSettingsPage() {
   }
 
   function saveSensorWithConfirmation() {
+    if (editingSensorId !== null) {
+      const sensor = sensors.find((item) => item.id === editingSensorId);
+
+      if (sensor && !hasSensorXmlChanges(sensor, sensorDraft)) {
+        saveEditSensor();
+        return;
+      }
+    }
+
     setResetConfirm({
       title: "Atualizar configuração do controlador?",
       description:
@@ -408,4 +417,49 @@ export function useSettingsPage() {
 
 function isValidPollingInterval(pollingIntervalMs: number): boolean {
   return Number.isInteger(pollingIntervalMs) && pollingIntervalMs > 0;
+}
+
+function hasSensorXmlChanges(sensor: Sensor, draft: SensorDraft): boolean {
+  if (sensor.nodeId !== draft.nodeId) return true;
+  if (sensor.name.trim() !== draft.name.trim()) return true;
+
+  return !areSensorRegistersXmlEqual(sensor.registers, draft.registers);
+}
+
+function areSensorRegistersXmlEqual(
+  currentRegisters: Sensor["registers"],
+  draftRegisters: SensorDraft["registers"],
+): boolean {
+  if (currentRegisters.length !== draftRegisters.length) return false;
+
+  const current = [...currentRegisters].sort(compareRegistersForXml);
+  const draft = [...draftRegisters].sort(compareRegistersForXml);
+
+  return current.every((register, index) =>
+    areSensorRegisterXmlFieldsEqual(register, draft[index]),
+  );
+}
+
+function compareRegistersForXml(
+  left: Sensor["registers"][number],
+  right: Sensor["registers"][number],
+): number {
+  if (left.address !== right.address) return left.address - right.address;
+  return left.name.localeCompare(right.name);
+}
+
+function areSensorRegisterXmlFieldsEqual(
+  current: Sensor["registers"][number],
+  draft: SensorDraft["registers"][number] | undefined,
+): boolean {
+  if (draft === undefined) return false;
+
+  return (
+    current.name.trim() === draft.name.trim() &&
+    current.address === draft.address &&
+    (current.scaleType ?? undefined) === (draft.scaleType ?? undefined) &&
+    (current.scaleFactor ?? undefined) === (draft.scaleFactor ?? undefined) &&
+    current.unit.trim() === draft.unit.trim() &&
+    (current.isHealthCheck ?? false) === (draft.isHealthCheck ?? false)
+  );
 }

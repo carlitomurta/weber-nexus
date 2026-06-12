@@ -42,6 +42,7 @@ function toPollingRegister(
   return {
     name: register.name,
     address: register.address,
+    localRegisterNumber: register.localRegisterNumber,
     scaleType,
     scaleFactor,
     unit: register.unit ?? '',

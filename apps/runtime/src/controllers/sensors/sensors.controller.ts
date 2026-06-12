@@ -8,7 +8,7 @@ import {
   Post,
   ParseIntPipe,
 } from '@nestjs/common';
-import type { NewSensor, SensorWrite } from '@weber-nexus/repository';
+import { parseCreateSensorDto, parseUpdateSensorDto } from './dto/sensor.dto';
 import { SensorsService } from './sensors.service';
 
 @Controller('sensors')
@@ -26,13 +26,13 @@ export class SensorsController {
   }
 
   @Post()
-  create(@Body() sensor: NewSensor) {
-    return this.service.postSensor(sensor);
+  create(@Body() sensor: unknown) {
+    return this.service.postSensor(parseCreateSensorDto(sensor));
   }
 
   @Patch()
-  update(@Body() sensor: SensorWrite) {
-    return this.service.updateSensor(sensor);
+  update(@Body() sensor: unknown) {
+    return this.service.updateSensor(parseUpdateSensorDto(sensor));
   }
 
   @Delete(':id')

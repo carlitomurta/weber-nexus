@@ -42,7 +42,7 @@ type RuntimeProcessConfig = {
   args: string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
-  stdio: "ignore" | "inherit" | ["ignore", "pipe", "pipe"];
+  stdio: "ignore";
 };
 
 function registerIpcHandlers() {
@@ -144,34 +144,6 @@ async function ensureRuntimeProcess() {
     }
   });
 
-  child.stdout?.on("data", (chunk: Buffer) => {
-    if (VITE_DEV_SERVER_URL) {
-      process.stdout.write(chunk);
-    }
-
-    publishDeveloperDiagnostic({
-      source: "runtime",
-      level: "info",
-      audience: "developer",
-      message: "Saída stdout do runtime.",
-      detail: sanitizeDiagnosticText(chunk.toString("utf8")),
-    });
-  });
-
-  child.stderr?.on("data", (chunk: Buffer) => {
-    if (VITE_DEV_SERVER_URL) {
-      process.stderr.write(chunk);
-    }
-
-    publishDeveloperDiagnostic({
-      source: "runtime",
-      level: "warn",
-      audience: "developer",
-      message: "Saída stderr do runtime.",
-      detail: sanitizeDiagnosticText(chunk.toString("utf8")),
-    });
-  });
-
   child.unref();
   runtimeStarted = true;
 }
@@ -183,6 +155,7 @@ function getRuntimeProcessConfig(): RuntimeProcessConfig {
     : path.join(workspaceRoot, "resources");
   const baseEnv = {
     ...process.env,
+    NEXUS_ENABLE_RUNTIME_STOP: developerDiagnosticsEnabled() ? "1" : "0",
     NEXUS_RESOURCES_PATH: resourcesPath,
     NEXUS_APP_INSTALL_DIR: app.isPackaged
       ? path.dirname(process.resourcesPath)
@@ -195,9 +168,7 @@ function getRuntimeProcessConfig(): RuntimeProcessConfig {
       args: ["workspace", "@weber-nexus/runtime", "dev"],
       cwd: workspaceRoot,
       env: baseEnv,
-      stdio: developerDiagnosticsEnabled()
-        ? ["ignore", "pipe", "pipe"]
-        : "ignore",
+      stdio: "ignore",
     };
   }
 
@@ -264,6 +235,9 @@ function createWindow() {
     icon: path.join(process.env.VITE_PUBLIC, "logo_nexus.svg"),
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
     },
   });
   windows.add(mainWindow);

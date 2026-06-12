@@ -76,11 +76,6 @@ export function SensorDialog({
       return;
     }
 
-    if (!registerDraft.isHealthCheck && !registerDraft.unit.trim()) {
-      toast.error("Informe a unidade do registro.");
-      return;
-    }
-
     const firstAddress = firstNodeRegisterAddress(draft.nodeId);
     const lastAddress = lastNodeRegisterAddress(draft.nodeId);
 

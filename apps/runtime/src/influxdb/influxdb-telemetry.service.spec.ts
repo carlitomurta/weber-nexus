@@ -146,6 +146,31 @@ describe('InfluxdbTelemetryService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('skips queued batches until their backoff window is ready', async () => {
+    queueRepository.findPending.mockResolvedValue([
+      {
+        id: 10,
+        lineProtocol: 'sensor_readings,controller_id=1 raw_value=1i 1',
+        attemptCount: 2,
+        lastError: 'old',
+        lastAttemptAt: new Date('2026-06-07T11:59:59.000Z'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    fetchMock.mockResolvedValue(response(204));
+
+    await service.writePollingResult(pollingResult());
+
+    expect(queueRepository.delete).not.toHaveBeenCalledWith(10);
+    expect(queueRepository.markAttempt).not.toHaveBeenCalledWith(
+      10,
+      expect.any(Number),
+      expect.any(String),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('queries recent readings from the v3 SQL endpoint', async () => {
     fetchMock.mockResolvedValue(
       response(

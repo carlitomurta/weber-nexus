@@ -1,7 +1,10 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { RuntimeEnvService } from '../config/runtime-env.service';
 
 @Injectable()
 export class RuntimeControlService {
+  constructor(private readonly runtimeEnv: RuntimeEnvService) {}
+
   health(): { status: 'ready'; timestamp: string } {
     return {
       status: 'ready',
@@ -10,6 +13,12 @@ export class RuntimeControlService {
   }
 
   stop(remoteAddress?: string): { stopping: true } {
+    if (!this.runtimeEnv.isRuntimeStopEnabled()) {
+      throw new ForbiddenException(
+        'Runtime só pode ser parado em desenvolvimento local',
+      );
+    }
+
     if (!isLocalRequest(remoteAddress)) {
       throw new ForbiddenException('Runtime só pode ser parado localmente');
     }

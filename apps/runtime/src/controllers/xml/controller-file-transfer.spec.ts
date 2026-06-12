@@ -243,6 +243,29 @@ describe('controller file transfer download protocol', () => {
       'CMD1002 2',
     ]);
   });
+
+  it('rejects malformed EOF responses as Error instances', async () => {
+    const server = await startUploadServer((_command, index, socket) => {
+      if (index === 0) {
+        socket.write('RSP10015\r\n');
+        return;
+      }
+
+      socket.write('RSP10020,ffff,BAD');
+    });
+
+    try {
+      await expect(
+        downloadWlConfigXml({
+          host: '127.0.0.1',
+          port: server.port,
+          timeoutMs: 1000,
+        }),
+      ).rejects.toThrow(Error);
+    } finally {
+      await server.close();
+    }
+  });
 });
 
 describe('controller host API register reads', () => {

@@ -76,6 +76,10 @@ export class SensorsService {
       );
     }
 
+    if (!this.hasSensorXmlChanges(currentSensor, sensor)) {
+      return this.sensorsRepository.updateSensor(sensor);
+    }
+
     const controller = await this.getControllerForSensor(sensor.controllerId);
     const currentSensors = await this.sensorsRepository.findByControllerId(
       sensor.controllerId,
@@ -164,13 +168,15 @@ export class SensorsService {
         !Number.isInteger(register.address) ||
         register.address < firstNodeRegisterAddress(sensor.nodeId) ||
         register.address > lastNodeRegisterAddress(sensor.nodeId) ||
-        this.isInvalidRegisterScale(register) ||
-        (!register.isHealthCheck && !register.unit?.trim()),
+        (register.localRegisterNumber !== undefined &&
+          (!Number.isInteger(register.localRegisterNumber) ||
+            register.localRegisterNumber <= 0)) ||
+        this.isInvalidRegisterScale(register),
     );
 
     if (invalidRegister !== undefined) {
       throw new BadRequestException(
-        `Registros do sensor devem ter nome e endereços entre ${firstNodeRegisterAddress(sensor.nodeId)} e ${lastNodeRegisterAddress(sensor.nodeId)}`,
+        `Registros do nó ${sensor.nodeId} devem ter nome e endereços entre ${firstNodeRegisterAddress(sensor.nodeId)} e ${lastNodeRegisterAddress(sensor.nodeId)}`,
       );
     }
 
@@ -209,6 +215,33 @@ export class SensorsService {
     }
 
     return undefined;
+  }
+
+  private hasSensorXmlChanges(
+    currentSensor: Sensor,
+    nextSensor: SensorWrite,
+  ): boolean {
+    if (currentSensor.nodeId !== nextSensor.nodeId) return true;
+    if (currentSensor.name.trim() !== nextSensor.name.trim()) return true;
+
+    return !this.areSensorRegistersXmlEqual(
+      currentSensor.registers,
+      nextSensor.registers,
+    );
+  }
+
+  private areSensorRegistersXmlEqual(
+    currentRegisters: Sensor['registers'],
+    nextRegisters: SensorWrite['registers'],
+  ): boolean {
+    if (currentRegisters.length !== nextRegisters.length) return false;
+
+    const current = [...currentRegisters].sort(compareRegistersForXml);
+    const next = [...nextRegisters].sort(compareRegistersForXml);
+
+    return current.every((register, index) =>
+      areSensorRegisterXmlFieldsEqual(register, next[index]),
+    );
   }
 
   private async uploadControllerConfigOrThrow(
@@ -269,4 +302,28 @@ function firstNodeRegisterAddress(nodeId: number): number {
 
 function lastNodeRegisterAddress(nodeId: number): number {
   return nodeId * 16 + 16;
+}
+
+function compareRegistersForXml(
+  left: Sensor['registers'][number],
+  right: Sensor['registers'][number],
+): number {
+  if (left.address !== right.address) return left.address - right.address;
+  return left.name.localeCompare(right.name);
+}
+
+function areSensorRegisterXmlFieldsEqual(
+  current: Sensor['registers'][number],
+  next: SensorWrite['registers'][number] | undefined,
+): boolean {
+  if (next === undefined) return false;
+
+  return (
+    current.name.trim() === next.name.trim() &&
+    current.address === next.address &&
+    (current.scaleType ?? undefined) === (next.scaleType ?? undefined) &&
+    (current.scaleFactor ?? undefined) === (next.scaleFactor ?? undefined) &&
+    current.unit.trim() === next.unit.trim() &&
+    (current.isHealthCheck ?? false) === (next.isHealthCheck ?? false)
+  );
 }

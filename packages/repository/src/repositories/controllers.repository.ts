@@ -156,4 +156,18 @@ export class ControllersRepository {
 
     return controller;
   }
+
+  async updateOperationalStatus(
+    controllerId: number,
+    operationalStatus: string,
+  ): Promise<void> {
+    await this.db
+      .update(controllers)
+      .set({
+        operationalStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(controllers.id, controllerId))
+      .run();
+  }
 }

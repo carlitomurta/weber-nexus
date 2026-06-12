@@ -14,7 +14,12 @@ jest.mock('../../polling/polling-runtime.service', () => ({
   PollingRuntimeService: class {},
 }));
 
-import type { Controller, NewSensor, Sensor } from '@weber-nexus/repository';
+import type {
+  Controller,
+  NewSensor,
+  Sensor,
+  SensorWrite,
+} from '@weber-nexus/repository';
 import { SensorsService } from './sensors.service';
 
 describe('SensorsService XML upload gate', () => {
@@ -142,10 +147,9 @@ describe('SensorsService XML upload gate', () => {
     await expect(service.postSensor(newSensor)).resolves.toEqual(
       insertedSensor,
     );
-    expect(controllerXmlConfigService.uploadControllerConfig).toHaveBeenCalledWith(
-      controller,
-      [existingSensor, newSensor],
-    );
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).toHaveBeenCalledWith(controller, [existingSensor, newSensor]);
     expect(sensorsRepository.insertSensor).toHaveBeenCalledWith(newSensor);
   });
 
@@ -172,8 +176,77 @@ describe('SensorsService XML upload gate', () => {
     await expect(service.postSensor(newSensor)).rejects.toThrow(
       'Endereço de registrador 33 já está cadastrado',
     );
-    expect(controllerXmlConfigService.uploadControllerConfig).not.toHaveBeenCalled();
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
     expect(sensorsRepository.insertSensor).not.toHaveBeenCalled();
+  });
+
+  it('updates internal-only sensor fields without uploading XML', async () => {
+    const currentSensor = sensorRecord({
+      id: 12,
+      nodeId: 2,
+      name: 'Pump B',
+      registers: rangeRegisters(33, 38),
+    });
+    const update = sensorWrite({
+      ...currentSensor,
+      description: 'Mancal principal',
+      model: 'QM30VT2',
+      location: 'Linha 2',
+    });
+    const updatedSensor = {
+      ...currentSensor,
+      ...update,
+      updatedAt: new Date('2026-06-11T00:00:00.000Z'),
+    };
+    sensorsRepository.findById.mockResolvedValue(currentSensor);
+    sensorsRepository.updateSensor.mockResolvedValue(updatedSensor);
+
+    await expect(service.updateSensor(update)).resolves.toEqual(updatedSensor);
+    expect(sensorsRepository.findByControllerId).not.toHaveBeenCalled();
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
+    expect(controllersRepository.updateXmlSyncMetadata).not.toHaveBeenCalled();
+    expect(pollingRuntimeService.refreshController).not.toHaveBeenCalled();
+  });
+
+  it('uploads XML when a sensor name changes with valid node 2 registers', async () => {
+    const currentSensor = sensorRecord({
+      id: 12,
+      nodeId: 2,
+      name: 'Pump B',
+      registers: rangeRegisters(33, 38),
+    });
+    const update = sensorWrite({
+      ...currentSensor,
+      name: 'Pump B Renamed',
+      description: 'Mancal principal',
+      location: 'Linha 2',
+    });
+    const nextSensor = { ...currentSensor, ...update };
+    const xmlMetadata = {
+      xmlConfig: '<configuration />',
+      xmlConfigChecksum: 'checksum-2',
+      xmlLastSyncedAt: new Date('2026-06-11T00:00:00.000Z'),
+    };
+    sensorsRepository.findById.mockResolvedValue(currentSensor);
+    sensorsRepository.findByControllerId.mockResolvedValue([currentSensor]);
+    sensorsRepository.updateSensor.mockResolvedValue(nextSensor);
+    controllerXmlConfigService.uploadControllerConfig.mockResolvedValue(
+      xmlMetadata,
+    );
+
+    await expect(service.updateSensor(update)).resolves.toEqual(nextSensor);
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).toHaveBeenCalledWith(controller, [nextSensor]);
+    expect(controllersRepository.updateXmlSyncMetadata).toHaveBeenCalledWith(
+      1,
+      xmlMetadata,
+    );
+    expect(pollingRuntimeService.refreshController).toHaveBeenCalledWith(1);
   });
 
   it('logs XML upload failure and does not delete a sensor locally', async () => {
@@ -236,4 +309,30 @@ function sensorRecord({
     createdAt: new Date('2026-06-10T00:00:00.000Z'),
     updatedAt: new Date('2026-06-10T00:00:00.000Z'),
   };
+}
+
+function sensorWrite(sensor: Sensor): SensorWrite {
+  return {
+    id: sensor.id,
+    controllerId: sensor.controllerId,
+    nodeId: sensor.nodeId,
+    name: sensor.name,
+    description: sensor.description,
+    model: sensor.model,
+    location: sensor.location,
+    operationalStatus: sensor.operationalStatus,
+    registers: sensor.registers,
+    deletedAt: sensor.deletedAt,
+  };
+}
+
+function rangeRegisters(
+  firstAddress: number,
+  lastAddress: number,
+): NewSensor['registers'] {
+  return Array.from({ length: lastAddress - firstAddress + 1 }, (_, index) => ({
+    name: `Registro ${firstAddress + index}`,
+    address: firstAddress + index,
+    unit: '',
+  }));
 }

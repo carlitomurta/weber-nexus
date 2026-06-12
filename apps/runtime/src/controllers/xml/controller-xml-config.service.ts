@@ -50,10 +50,14 @@ export class ControllerXmlConfigService {
   async downloadControllerConfig(ipAddress: string): Promise<ParsedWlConfig> {
     try {
       const rawXml = await downloadWlConfigXml({ host: ipAddress });
-      this.logger.error(rawXml);
       const cleanedXml = cleanWlConfigXml(rawXml);
+      const parsed = parseWlConfigXml(cleanedXml);
 
-      return parseWlConfigXml(cleanedXml);
+      this.logger.info(
+        `WLConfig.xml baixado de ${ipAddress}: checksum=${parsed.checksum} bytes=${Buffer.byteLength(parsed.xml, 'utf8')} sensores=${parsed.sensors.length}`,
+      );
+
+      return parsed;
     } catch (error) {
       this.logger.error(`Falha ao baixar WLConfig.xml de ${ipAddress}`, error);
       throw new BadGatewayException(
@@ -107,11 +111,10 @@ export class ControllerXmlConfigService {
     const xmlConfig = buildWlConfigXml(baseXml, sensors, {
       controllerModel: controller.model,
     });
-    this.logger.debug(xmlConfig);
     const uploadPlan = createWlConfigUploadPlan(xmlConfig.xml);
 
     this.logger.info(
-      `Enviando WLConfig.xml para ${controller.ipAddress}: fileSizeBytes=${uploadPlan.fileSizeBytes} totalChunkBytes=${uploadPlan.totalChunkBytes} chunkCount=${uploadPlan.chunkCount} chunkSizes=${uploadPlan.chunkSizes.join(',')}`,
+      `Enviando WLConfig.xml para ${controller.ipAddress}: checksum=${xmlConfig.checksum} fileSizeBytes=${uploadPlan.fileSizeBytes} totalChunkBytes=${uploadPlan.totalChunkBytes} chunkCount=${uploadPlan.chunkCount} chunkSizes=${uploadPlan.chunkSizes.join(',')}`,
     );
 
     try {

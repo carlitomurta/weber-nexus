@@ -48,8 +48,7 @@ describe('WLConfig XML helpers', () => {
   });
 
   it('restores controller encoded line endings while cleaning XML', () => {
-    const raw =
-      'RSP100232,ABCD,<?xml version="1.0"?>\x1F<configuration />EOF';
+    const raw = 'RSP100232,ABCD,<?xml version="1.0"?>\x1F<configuration />EOF';
 
     expect(cleanWlConfigXml(raw)).toBe(
       '<?xml version="1.0"?>\n<configuration />',
@@ -67,6 +66,7 @@ describe('WLConfig XML helpers', () => {
           expect.objectContaining({
             name: 'Temp',
             address: 17,
+            localRegisterNumber: 1,
             scaleType: 'divide',
             scaleFactor: 10,
             unit: 'C',
@@ -75,6 +75,7 @@ describe('WLConfig XML helpers', () => {
           expect.objectContaining({
             name: 'Link',
             address: 18,
+            localRegisterNumber: 2,
             unit: '',
             isHealthCheck: true,
           }),
@@ -124,6 +125,12 @@ describe('WLConfig XML helpers', () => {
     expect(result.xml).toContain('scale_type="divide"');
     expect(result.xml).toContain('scale_using="1000"');
     expect(result.xml).toContain('count="2"');
+    expect(parsed.sensors[0].registers[0]).toEqual(
+      expect.objectContaining({
+        address: 33,
+        localRegisterNumber: 1,
+      }),
+    );
     expect(parsed.sensors[0].registers).toHaveLength(2);
   });
 
@@ -135,9 +142,7 @@ describe('WLConfig XML helpers', () => {
     });
 
     expect(result.xml).toContain('device="DXM700"');
-    expect(result.xml).toContain(
-      'guid="11111111-2222-3333-4444-555555555555"',
-    );
+    expect(result.xml).toContain('guid="11111111-2222-3333-4444-555555555555"');
     expect(result.xml).toContain('os="BannerOS"');
     expect(result.xml).toContain('osversion="1.2.3"');
     expect(result.xml).toContain('software="DXM Configurator"');

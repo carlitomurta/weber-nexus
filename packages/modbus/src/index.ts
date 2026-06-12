@@ -95,20 +95,22 @@ export class ModbusTcpConnection implements ControllerConnection {
 
     if (registers.length === 0) return [];
 
-    logger.info(
-      `Lendo controlador IP:${this.config.host} ${registers.length} registradores holding ordenados a partir do offset 0`,
-    );
-    const result = await this.client.readHoldingRegisters(0, registers.length);
+    const readLength = Math.max(...registers);
 
-    if (result.data.length < registers.length) {
+    logger.info(
+      `Lendo controlador IP:${this.config.host} ${registers.length} registradores holding locais até ${readLength}`,
+    );
+    const result = await this.client.readHoldingRegisters(0, readLength);
+
+    if (result.data.length < readLength) {
       throw new Error(
-        `Esperados ${registers.length} valores de registrador holding, recebidos ${result.data.length}`,
+        `Esperados ${readLength} valores de registrador holding, recebidos ${result.data.length}`,
       );
     }
 
-    return registers.map((address, index) => ({
+    return registers.map((address) => ({
       address,
-      values: [result.data[index]],
+      values: [result.data[address - 1]],
     }));
   }
 }
@@ -167,11 +169,12 @@ export class HostApiConnection implements ControllerConnection {
       `Lendo controlador IP:${this.config.host} ${registers.length} registradores locais via Host API`,
     );
 
-    const values = await this.readLocalRegisterRange(socket, registers.length);
+    const readLength = Math.max(...registers);
+    const values = await this.readLocalRegisterRange(socket, readLength);
 
-    return registers.map((address, index) => ({
+    return registers.map((address) => ({
       address,
-      values: [values[index]],
+      values: [values[address - 1]],
     }));
   }
 

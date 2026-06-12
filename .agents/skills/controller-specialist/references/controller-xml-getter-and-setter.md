@@ -5,7 +5,8 @@ metadata:
   author: Carlito Murta
   version: "1.0"
   domain: development
-  type: task
+  type: utility
+  mode: assistive
 ---
 
 # Objective

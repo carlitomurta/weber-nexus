@@ -14,14 +14,4 @@ export type ElectronApi = {
     getRecent(): Promise<DesktopDiagnostic[]>;
     onDiagnostic(callback: (diagnostic: DesktopDiagnostic) => void): () => void;
   };
-
-  ipc: {
-    send(channel: string, data?: unknown): void;
-
-    on(channel: string, callback: (...args: unknown[]) => void): void;
-
-    off(channel: string, callback: (...args: unknown[]) => void): void;
-
-    invoke(channel: string, data?: unknown): Promise<unknown>;
-  };
 };

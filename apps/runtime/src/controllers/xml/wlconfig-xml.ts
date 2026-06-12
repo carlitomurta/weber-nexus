@@ -282,6 +282,7 @@ function sensorsFromWlConfigDocument(
             readStringAttribute(localRegister, 'name') ??
             `${name} ${index + 1}`,
           address: remreg + index,
+          localRegisterNumber: localreg + index,
           scaleType,
           scaleFactor: scaleType === undefined ? undefined : scaleFactor,
           unit,

@@ -26,6 +26,13 @@ export class RuntimeEnvService {
     return process.env.NEXUS_DISABLE_INFLUXDB === '1';
   }
 
+  isRuntimeStopEnabled(): boolean {
+    if (process.env.NEXUS_ENABLE_RUNTIME_STOP === '0') return false;
+    if (process.env.NEXUS_ENABLE_RUNTIME_STOP === '1') return true;
+
+    return process.env.NODE_ENV !== 'production';
+  }
+
   influxdbUrl(): string {
     return process.env.NEXUS_INFLUXDB_URL ?? DEFAULT_INFLUXDB_URL;
   }

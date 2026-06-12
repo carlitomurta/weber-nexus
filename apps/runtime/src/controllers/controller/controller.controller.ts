@@ -8,7 +8,10 @@ import {
   Post,
   ParseIntPipe,
 } from '@nestjs/common';
-import type { ControllerWrite, NewController } from '@weber-nexus/repository';
+import {
+  parseCreateControllerDto,
+  parseUpdateControllerDto,
+} from './dto/controller.dto';
 import { ControllersService } from './controller.service';
 
 @Controller('controllers')
@@ -26,8 +29,8 @@ export class ControllersController {
   }
 
   @Post()
-  create(@Body() controller: NewController) {
-    return this.service.postController(controller);
+  create(@Body() controller: unknown) {
+    return this.service.postController(parseCreateControllerDto(controller));
   }
 
   @Post(':id/xml/sync')
@@ -36,8 +39,8 @@ export class ControllersController {
   }
 
   @Patch()
-  update(@Body() controller: ControllerWrite) {
-    return this.service.updateController(controller);
+  update(@Body() controller: unknown) {
+    return this.service.updateController(parseUpdateControllerDto(controller));
   }
 
   @Delete(':id')
