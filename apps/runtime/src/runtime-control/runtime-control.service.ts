@@ -14,9 +14,10 @@ export class RuntimeControlService {
       throw new ForbiddenException('Runtime só pode ser parado localmente');
     }
 
-    setTimeout(() => {
+    const shutdownTimer = setTimeout(() => {
       process.kill(process.pid, 'SIGTERM');
-    }, 50);
+    }, 250);
+    shutdownTimer.unref();
 
     return { stopping: true };
   }
