@@ -1,14 +1,6 @@
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/shared/ui/alert-dialog";
 import { Field, inputCls } from "@/features/settings/form-controls";
 import { useEffect, useState } from "react";
+import { Save, X } from "lucide-react";
 import type {
   Controller,
   ControllerWrite,
@@ -46,25 +38,34 @@ export function EditControllerDialog({
       setDraft({
         name: controller.name,
         model: controller.model,
-        site: controller.site,
+        site: controller.site ?? "",
         ipAddress: controller.ipAddress,
         pollingIntervalMs: controller.pollingIntervalMs,
       });
     }
   }, [controller, open]);
 
+  if (!open) return null;
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Editar controlador</AlertDialogTitle>
-          <AlertDialogDescription>
-            Atualize as informações do controlador.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="space-y-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
+            Editar controlador
+          </div>
+          <button
+            onClick={() => onOpenChange(false)}
+            className="inline-flex size-8 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Fechar"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <div className="space-y-3 p-4">
           <Field label="Nome do controlador">
             <input
+              autoFocus
               className={inputCls}
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -72,7 +73,7 @@ export function EditControllerDialog({
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Modelo">
-              <select
+              <input
                 className={inputCls}
                 value={draft.model}
                 onChange={(e) =>
@@ -81,10 +82,7 @@ export function EditControllerDialog({
                     model: e.target.value,
                   })
                 }
-              >
-                <option value="DXM700">DXM700</option>
-                <option value="DXM1200">DXM1200</option>
-              </select>
+              />
             </Field>
             <Field label="Endereço IP">
               <input
@@ -119,10 +117,15 @@ export function EditControllerDialog({
             />
           </Field>
         </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+        <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
           <button
-            className="inline-flex h-9 items-center justify-center rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            onClick={() => onOpenChange(false)}
+            className="inline-flex h-8 items-center gap-1.5 rounded px-3 text-xs text-muted-foreground hover:bg-muted"
+          >
+            <X className="size-3" /> Cancelar
+          </button>
+          <button
+            className="inline-flex h-8 items-center gap-1.5 rounded bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
             onClick={() =>
               onSave({
                 id: controller.id,
@@ -132,10 +135,10 @@ export function EditControllerDialog({
               })
             }
           >
-            Salvar alterações
+            <Save className="size-3" /> Salvar alterações
           </button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </div>
+      </div>
+    </div>
   );
 }

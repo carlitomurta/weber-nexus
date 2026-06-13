@@ -44,9 +44,13 @@ export class ControllersService {
       await this.controllerXmlConfigService.downloadControllerConfig(
         controller.ipAddress,
       );
+    const controllerWithXmlModel: NewController = {
+      ...controller,
+      model: parsedXml.controllerModel ?? controller.model,
+    };
     const newController =
       await this.controllersRepository.insertControllerWithSensors(
-        controller,
+        controllerWithXmlModel,
         parsedXml.sensors,
         this.controllerXmlConfigService.toXmlMetadata(parsedXml),
       );

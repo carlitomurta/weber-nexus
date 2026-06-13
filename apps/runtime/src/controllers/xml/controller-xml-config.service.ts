@@ -100,7 +100,7 @@ export class ControllerXmlConfigService {
   }
 
   async uploadControllerConfig(
-    controller: Pick<Controller, 'ipAddress' | 'model' | 'xmlConfig'>,
+    controller: Pick<Controller, 'ipAddress' | 'xmlConfig'>,
     sensors: ReadonlyArray<Sensor | NewSensor>,
   ): Promise<{
     xmlConfig: string;
@@ -108,9 +108,7 @@ export class ControllerXmlConfigService {
     xmlLastSyncedAt: Date;
   }> {
     const baseXml = await this.resolveBaseXmlForUpload(controller);
-    const xmlConfig = buildWlConfigXml(baseXml, sensors, {
-      controllerModel: controller.model,
-    });
+    const xmlConfig = buildWlConfigXml(baseXml, sensors);
     const uploadPlan = createWlConfigUploadPlan(xmlConfig.xml);
 
     this.logger.info(

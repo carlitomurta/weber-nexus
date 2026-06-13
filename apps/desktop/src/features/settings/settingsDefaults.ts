@@ -2,7 +2,7 @@ import type { ControllerDraft, SensorDraft } from "./settings.type";
 
 export const emptyController: ControllerDraft = {
   name: "",
-  model: "DXM700",
+  model: "DXM",
   ipAddress: "",
   site: "",
   port: null,

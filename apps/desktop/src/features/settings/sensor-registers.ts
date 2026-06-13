@@ -20,6 +20,14 @@ export function buildSensorPayload(
     return { error: "Informe ao menos um registro do sensor." };
   }
 
+  const duplicateAddress = findDuplicateRegisterAddress(draft.registers);
+
+  if (duplicateAddress !== undefined) {
+    return {
+      error: `Endereço de registrador ${duplicateAddress} está duplicado neste sensor.`,
+    };
+  }
+
   const firstAddress = firstNodeRegisterAddress(draft.nodeId);
   const lastAddress = lastNodeRegisterAddress(draft.nodeId);
   const invalidRegister = draft.registers.find(
@@ -111,6 +119,19 @@ function isInvalidRegisterScale(register: SensorRegister): boolean {
     !Number.isFinite(register.scaleFactor) ||
     register.scaleFactor <= 0
   );
+}
+
+function findDuplicateRegisterAddress(
+  registers: ReadonlyArray<SensorRegister>,
+): number | undefined {
+  const seen = new Set<number>();
+
+  for (const register of registers) {
+    if (seen.has(register.address)) return register.address;
+    seen.add(register.address);
+  }
+
+  return undefined;
 }
 
 function defaultScaleType(

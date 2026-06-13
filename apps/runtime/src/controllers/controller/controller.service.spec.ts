@@ -80,6 +80,7 @@ describe('ControllersService XML sync behavior', () => {
       downloadControllerConfig: jest.fn().mockResolvedValue({
         xml: '<configuration />',
         checksum: 'checksum',
+        controllerModel: 'DXM1200',
         sensors: [{ name: 'Imported', nodeId: 1, registers: [] }],
       }),
       toXmlMetadata: jest.fn().mockReturnValue({
@@ -120,6 +121,50 @@ describe('ControllersService XML sync behavior', () => {
     ).toHaveBeenCalled();
   });
 
+  it('stores controller model from XML device on create', async () => {
+    await service.postController({
+      name: 'DXM',
+      model: 'Manual',
+      ipAddress: '192.168.1.10',
+      pollingIntervalMs: 300000,
+    });
+
+    expect(
+      controllersRepository.insertControllerWithSensors,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'DXM1200',
+      }),
+      expect.any(Array),
+      expect.any(Object),
+    );
+  });
+
+  it('keeps submitted controller model when XML device is missing', async () => {
+    controllerXmlConfigService.downloadControllerConfig.mockResolvedValueOnce({
+      xml: '<configuration />',
+      checksum: 'checksum',
+      sensors: [],
+    });
+
+    await service.postController({
+      name: 'DXM',
+      model: 'DXM700',
+      ipAddress: '192.168.1.10',
+      pollingIntervalMs: 300000,
+    });
+
+    expect(
+      controllersRepository.insertControllerWithSensors,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'DXM700',
+      }),
+      expect.any(Array),
+      expect.any(Object),
+    );
+  });
+
   it('rejects controller creation when XML download fails', async () => {
     controllerXmlConfigService.downloadControllerConfig.mockRejectedValue(
       new Error('Sem rede'),
@@ -157,6 +202,48 @@ describe('ControllersService XML sync behavior', () => {
     );
   });
 
+  it('updates controller model without XML sync when IP is unchanged', async () => {
+    await service.updateController({
+      ...controller,
+      model: 'DXM700',
+    });
+
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
+    expect(
+      controllerXmlConfigService.downloadControllerConfig,
+    ).not.toHaveBeenCalled();
+    expect(controllersRepository.updateController).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'DXM700',
+      }),
+    );
+  });
+
+  it('updates name, site and polling interval without XML sync', async () => {
+    await service.updateController({
+      ...controller,
+      name: 'DXM Norte',
+      site: 'Planta A',
+      pollingIntervalMs: 60000,
+    });
+
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
+    expect(
+      controllerXmlConfigService.downloadControllerConfig,
+    ).not.toHaveBeenCalled();
+    expect(controllersRepository.updateController).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'DXM Norte',
+        site: 'Planta A',
+        pollingIntervalMs: 60000,
+      }),
+    );
+  });
+
   it('pulls fresh XML and replaces sensors when controller IP changes', async () => {
     await service.updateController({
       ...controller,
@@ -179,6 +266,24 @@ describe('ControllersService XML sync behavior', () => {
         }),
       ]),
     );
+  });
+
+  it('does not update SQLite when IP XML import fails', async () => {
+    controllerXmlConfigService.downloadControllerConfig.mockRejectedValueOnce(
+      new Error('Falha ao importar XML'),
+    );
+
+    await expect(
+      service.updateController({
+        ...controller,
+        ipAddress: '192.168.1.11',
+      }),
+    ).rejects.toThrow('Falha ao importar XML');
+
+    expect(controllersRepository.updateController).not.toHaveBeenCalled();
+    expect(
+      controllersRepository.updateControllerWithSensors,
+    ).not.toHaveBeenCalled();
   });
 
   it('delegates manual sync to the XML service', async () => {

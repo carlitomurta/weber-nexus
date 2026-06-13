@@ -106,12 +106,22 @@ export function useSettingsPage() {
       return;
     }
 
+    setResetConfirm({
+      title: "Importar configuração do controlador?",
+      description:
+        "O cadastro baixa o WLConfig.xml do controlador físico e importa sensores e registros encontrados.",
+      confirmLabel: "Importar e cadastrar",
+      onConfirm: createControllerFromDraft,
+    });
+  }
+
+  function createControllerFromDraft() {
     createController(
       {
         name: controllerDraft.name.trim(),
         model: controllerDraft.model.trim(),
         ipAddress: controllerDraft.ipAddress.trim(),
-        site: controllerDraft.site.trim(),
+        site: controllerDraft.site?.trim() ?? "",
         port: controllerDraft.port,
         pollingIntervalMs: controllerDraft.pollingIntervalMs,
       },
@@ -155,6 +165,18 @@ export function useSettingsPage() {
       return;
     }
 
+    const conflictAddress = findConflictingRegisterAddress(
+      sensor.registers,
+      selectedSensors,
+    );
+
+    if (conflictAddress !== undefined) {
+      toast.error(
+        `Endereço de registrador ${conflictAddress} já está cadastrado neste controlador.`,
+      );
+      return;
+    }
+
     createSensor(sensor, {
       onSuccess: () => {
         setSensorDraft(emptySensor);
@@ -189,6 +211,19 @@ export function useSettingsPage() {
 
     if ("error" in payload) {
       toast.error(payload.error);
+      return;
+    }
+
+    const conflictAddress = findConflictingRegisterAddress(
+      payload.registers,
+      sensors.filter((item) => item.controllerId === sensor.controllerId),
+      sensor.id,
+    );
+
+    if (conflictAddress !== undefined) {
+      toast.error(
+        `Endereço de registrador ${conflictAddress} já está cadastrado neste controlador.`,
+      );
       return;
     }
 
@@ -248,6 +283,9 @@ export function useSettingsPage() {
 
   function saveEditController(patch: ControllerWrite) {
     if (!editingControllerId) return;
+    const currentController = editingController;
+
+    if (!currentController) return;
 
     if (!patch.name.trim() || !patch.ipAddress.trim()) {
       toast.error("Informe nome e endereço IP do controlador.");
@@ -259,35 +297,42 @@ export function useSettingsPage() {
       return;
     }
 
+    const save = () => updateControllerFromPatch(patch);
+
+    if (currentController.ipAddress.trim() === patch.ipAddress.trim()) {
+      save();
+      return;
+    }
+
     setResetConfirm({
-      title: "Atualizar configuração do controlador?",
+      title: "Importar configuração do novo IP?",
       description:
-        "Salvar alterações envia uma nova configuração ao controlador e pode reiniciá-lo.",
-      confirmLabel: "Salvar e sincronizar",
-      onConfirm: () =>
-        updateController(
-          {
-            ...patch,
-            name: patch.name.trim(),
-            model: patch.model.trim(),
-            ipAddress: patch.ipAddress.trim(),
-            site: patch.site.trim(),
-          },
-          {
-            onSuccess: () => {
-              setEditingControllerId(null);
-              toast.success("Controlador atualizado.");
-            },
-            onError: (error) =>
-              toast.error(
-                apiErrorMessage(
-                  error,
-                  "Não foi possível atualizar o controlador.",
-                ),
-              ),
-          },
-        ),
+        "Alterar o IP baixa o WLConfig.xml do novo controlador e substitui sensores e registros locais após sucesso.",
+      confirmLabel: "Importar e salvar",
+      onConfirm: save,
     });
+  }
+
+  function updateControllerFromPatch(patch: ControllerWrite) {
+    updateController(
+      {
+        ...patch,
+        name: patch.name.trim(),
+        model: patch.model.trim(),
+        ipAddress: patch.ipAddress.trim(),
+        site: patch.site?.trim() ?? "",
+      },
+      {
+        onSuccess: () => {
+          setEditingControllerId(null);
+          toast.success("Controlador atualizado.");
+        },
+        onError: (error) =>
+          toast.error(
+            apiErrorMessage(error, "Não foi possível atualizar o controlador."),
+          ),
+      },
+    );
   }
 
   function saveSensorWithConfirmation() {
@@ -417,6 +462,26 @@ export function useSettingsPage() {
 
 function isValidPollingInterval(pollingIntervalMs: number): boolean {
   return Number.isInteger(pollingIntervalMs) && pollingIntervalMs > 0;
+}
+
+function findConflictingRegisterAddress(
+  registers: ReadonlyArray<Sensor["registers"][number]>,
+  existingSensors: ReadonlyArray<Sensor>,
+  editingSensorId?: number,
+): number | undefined {
+  const nextAddresses = new Set(registers.map((register) => register.address));
+
+  for (const sensor of existingSensors) {
+    if (editingSensorId !== undefined && sensor.id === editingSensorId) {
+      continue;
+    }
+
+    for (const register of sensor.registers) {
+      if (nextAddresses.has(register.address)) return register.address;
+    }
+  }
+
+  return undefined;
 }
 
 function hasSensorXmlChanges(sensor: Sensor, draft: SensorDraft): boolean {

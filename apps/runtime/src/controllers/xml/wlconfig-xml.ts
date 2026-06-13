@@ -32,6 +32,7 @@ export type ParsedWlConfig = {
   readonly xml: string;
   readonly checksum: string;
   readonly document: WlConfigDocument;
+  readonly controllerModel?: string;
   readonly sensors: Omit<NewSensor, 'controllerId'>[];
 };
 
@@ -91,6 +92,7 @@ export function parseWlConfigXml(xml: string): ParsedWlConfig {
     xml,
     checksum: hashWlConfigXml(xml),
     document,
+    controllerModel: controllerModelFromWlConfigDocument(document),
     sensors: sensorsFromWlConfigDocument(document),
   };
 }
@@ -305,6 +307,14 @@ function sensorsFromWlConfigDocument(
       (sensor): sensor is Omit<NewSensor, 'controllerId'> =>
         sensor !== undefined,
     );
+}
+
+function controllerModelFromWlConfigDocument(
+  document: WlConfigDocument,
+): string | undefined {
+  return (
+    readStringAttribute(readFileInfo(document), 'device')?.trim() || undefined
+  );
 }
 
 function indexedLocalRegisters(

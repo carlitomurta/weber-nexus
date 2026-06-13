@@ -84,6 +84,12 @@ describe('WLConfig XML helpers', () => {
     ]);
   });
 
+  it('reads controller model from file info device', () => {
+    const parsed = parseWlConfigXml(xmlWithFileInfo);
+
+    expect(parsed.controllerModel).toBe('DXM1200');
+  });
+
   it('rejects invalid XML before parsing', () => {
     expect(() => parseWlConfigXml('<configuration>')).toThrow(
       'WLConfig.xml inválido',

@@ -1,6 +1,5 @@
 import { Save, X } from "lucide-react";
 
-import type { Controller } from "../../../types/controllers.type";
 import { Field, inputCls } from "./form-controls";
 import type { ControllerDraft } from "./settings.type";
 
@@ -47,21 +46,6 @@ export function ControllerDialog({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Modelo">
-              <select
-                className={inputCls}
-                value={draft.model}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    model: event.target.value as Controller["model"],
-                  })
-                }
-              >
-                <option value="DXM700">DXM700</option>
-                <option value="DXM1200">DXM1200</option>
-              </select>
-            </Field>
             <Field label="Endereço IP">
               <input
                 className={`${inputCls} font-mono`}
@@ -72,8 +56,6 @@ export function ControllerDialog({
                 }
               />
             </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <Field label="Local / Planta">
               <input
                 className={inputCls}
@@ -84,22 +66,22 @@ export function ControllerDialog({
                 }
               />
             </Field>
-            <Field label="Intervalo de coleta (ms)">
-              <input
-                type="number"
-                min={1000}
-                step={1000}
-                className={`${inputCls} font-mono`}
-                value={draft.pollingIntervalMs}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    pollingIntervalMs: Number(event.target.value) || 0,
-                  })
-                }
-              />
-            </Field>
           </div>
+          <Field label="Intervalo de coleta (ms)">
+            <input
+              type="number"
+              min={1000}
+              step={1000}
+              className={`${inputCls} font-mono`}
+              value={draft.pollingIntervalMs}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  pollingIntervalMs: Number(event.target.value) || 0,
+                })
+              }
+            />
+          </Field>
         </div>
         <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
           <button
