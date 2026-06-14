@@ -29,6 +29,11 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, "public")
   : RENDERER_DIST;
 
+app.setName(appDisplayName());
+if (process.platform === "win32") {
+  app.setAppUserModelId(appBuildChannel() === "development" ? "com.weber.nexus.dev" : "com.weber.nexus");
+}
+
 const windows = new Set<BrowserWindowType>();
 const diagnosticHistory: DesktopDiagnostic[] = [];
 let runtimeStarted = false;
@@ -155,7 +160,7 @@ function getRuntimeProcessConfig(): RuntimeProcessConfig {
     : path.join(workspaceRoot, "resources");
   const baseEnv = {
     ...process.env,
-    NEXUS_ENABLE_RUNTIME_STOP: developerDiagnosticsEnabled() ? "1" : "0",
+    NEXUS_ENABLE_RUNTIME_STOP: "1",
     NEXUS_RESOURCES_PATH: resourcesPath,
     NEXUS_APP_INSTALL_DIR: app.isPackaged
       ? path.dirname(process.resourcesPath)
@@ -232,7 +237,7 @@ function createWindow() {
     minHeight: 640,
     show: false,
     backgroundColor: "#0d1216",
-    icon: path.join(process.env.VITE_PUBLIC, "logo_nexus.svg"),
+    icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
@@ -346,6 +351,20 @@ function appBuildInfo(): AppBuildInfo {
     isPackaged: app.isPackaged,
     diagnosticsEnabled: channel === "development",
   };
+}
+
+function appDisplayName(): string {
+  return appBuildChannel() === "development" ? "Nexus Dev" : "Nexus";
+}
+
+function appIconPath(): string {
+  const buildIcon = path.join(process.env.APP_ROOT, "build", "icon.png");
+
+  if (fs.existsSync(buildIcon)) {
+    return buildIcon;
+  }
+
+  return path.join(process.env.VITE_PUBLIC, "logo_nexus.svg");
 }
 
 function appBuildChannel(): AppBuildChannel {

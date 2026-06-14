@@ -13,7 +13,7 @@ const env = {
   NEXUS_BUILD_CHANNEL: channel,
 };
 
-for (const script of ["build:bundle", "build:windows", "build:linux"]) {
+for (const script of buildScripts(channel)) {
   const result = spawnSync(
     "yarn",
     ["workspace", "@weber-nexus/desktop", script],
@@ -27,4 +27,20 @@ for (const script of ["build:bundle", "build:windows", "build:linux"]) {
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
+}
+
+function buildScripts(channel) {
+  if (channel !== "development") {
+    return ["build:bundle", "build:windows", "build:linux"];
+  }
+
+  if (process.platform === "win32") {
+    return ["build:bundle", "build:windows"];
+  }
+
+  if (process.platform === "linux") {
+    return ["build:bundle", "build:linux"];
+  }
+
+  return ["build:bundle"];
 }

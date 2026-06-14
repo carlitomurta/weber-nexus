@@ -75,4 +75,14 @@ FunctionEnd
   ${EndIf}
 !macroend
 
+!else
+
+!macro customUnInstall
+  DetailPrint "Parando runtime do Nexus..."
+  nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -UseBasicParsing -Method POST -Uri ''http://127.0.0.1:3000/runtime/stop'' -TimeoutSec 3 | Out-Null } catch { }"'
+  Pop $0
+  Pop $1
+  Sleep 1500
+!macroend
+
 !endif

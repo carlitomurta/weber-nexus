@@ -16,9 +16,23 @@ export function electronBuilderConfigArgs(platform) {
 
   return [
     `--config.appId=com.weber.nexus${isDevelopment ? ".dev" : ""}`,
-    `--config.productName=${productName}`,
-    `--config.executableName=${productName}`,
+    `--config.productName=${quoteCliValue(productName)}`,
+    `--config.executableName=${quoteCliValue(productName)}`,
     `--config.extraMetadata.nexusBuildChannel=${channel}`,
     `--config.${platform}.artifactName=${artifactName}-${platformArtifact}-\${version}.\${ext}`,
   ];
+}
+
+export function windowsElectronBuilderConfigArgs() {
+  const args = electronBuilderConfigArgs("win");
+
+  if (buildChannel() === "development") {
+    args.push("--config.win.signAndEditExecutable=false");
+  }
+
+  return args;
+}
+
+function quoteCliValue(value) {
+  return value.includes(" ") ? `"${value}"` : value;
 }

@@ -6,7 +6,8 @@
       "persistent": true
     },
     "build": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["NEXUS_BUILD_CHANNEL"]
     }
   }
 }
