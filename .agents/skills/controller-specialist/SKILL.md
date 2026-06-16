@@ -112,3 +112,4 @@ For testing with real controller, use the `192.168.1.1` at port `8844` fro HostA
 
 - [Dowload and Upload XML Configuration](./references/controller-xml-getter-and-setter.md) - How to download and upload the XML from controller.
 - [Controllers and Sensors CRUD operations](./references/controller-and-sensor-crud-operations.md) - How to manage the controllers and sensors CRUD operations.
+- [Controllers and Sensors](./references/controllers-and-sensors.md) - Detailed Nexus behaviour for controllers and sensors.
