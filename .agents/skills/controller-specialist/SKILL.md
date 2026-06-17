@@ -74,6 +74,7 @@ Use this [WLConfig](../../../packages/local_test/temp/WLConfig.xml) XML as an re
     - `localreg`: is the order number of the first register that the rule will include in the holding registers.
     - `name`: is the name of the rule, in our case will be the sensor name.
     - `remreg`: is the first address of the register, it respects the count. Example: if count is 2 and the first register is 17, it will add the registers address 17 and 18.
+  - Rules with the same `name` should be imported into Nexus as one sensor with merged registers. Keep the original XML content unchanged when importing; only the Nexus sensor storage is merged.
 
 For our case, we can understand that the entire file is our controller, the `rtu_read` rules are the sensors of this controller, and the `local_regs` are the registers of the sensors, organized by order number.
 

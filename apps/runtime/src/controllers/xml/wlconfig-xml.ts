@@ -261,7 +261,7 @@ function sensorsFromWlConfigDocument(
   const rtuRead = asRecord(document.configuration.rtu_read);
   const rules = asArray(rtuRead?.rule);
 
-  return rules
+  const sensors = rules
     .map((rule): Omit<NewSensor, 'controllerId'> | undefined => {
       const count = readPositiveIntegerAttribute(rule, 'count');
       const localreg = readPositiveIntegerAttribute(rule, 'localreg');
@@ -313,6 +313,42 @@ function sensorsFromWlConfigDocument(
       (sensor): sensor is Omit<NewSensor, 'controllerId'> =>
         sensor !== undefined,
     );
+
+  return mergeSensorsByName(sensors);
+}
+
+function mergeSensorsByName(
+  sensors: ReadonlyArray<Omit<NewSensor, 'controllerId'>>,
+): Omit<NewSensor, 'controllerId'>[] {
+  const sensorsByName = new Map<string, Omit<NewSensor, 'controllerId'>>();
+
+  for (const sensor of sensors) {
+    const existingSensor = sensorsByName.get(sensor.name);
+
+    if (!existingSensor) {
+      sensorsByName.set(sensor.name, {
+        ...sensor,
+        registers: [...sensor.registers],
+      });
+      continue;
+    }
+
+    sensorsByName.set(sensor.name, {
+      ...existingSensor,
+      registers: [...existingSensor.registers, ...sensor.registers].sort(
+        compareRegistersByAddress,
+      ),
+    });
+  }
+
+  return [...sensorsByName.values()];
+}
+
+function compareRegistersByAddress(
+  left: NewSensor['registers'][number],
+  right: NewSensor['registers'][number],
+): number {
+  return left.address - right.address;
 }
 
 function controllerModelFromWlConfigDocument(

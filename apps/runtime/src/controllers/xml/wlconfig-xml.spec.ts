@@ -84,6 +84,43 @@ describe('WLConfig XML helpers', () => {
     ]);
   });
 
+  it('merges read rules with the same name into one Nexus sensor', () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <local_regs>
+    <reg name="Velocity" num="1" scale_type="divide" scale_using="1000" units="mm/s" />
+    <reg name="Temperature" num="2" scale_type="divide" scale_using="20" units="C" />
+  </local_regs>
+  <rtu_read>
+    <rule count="1" localreg="1" name="Pump A" remreg="33" />
+    <rule count="1" localreg="2" name="Pump A" remreg="34" />
+  </rtu_read>
+</configuration>`;
+
+    const parsed = parseWlConfigXml(xml);
+
+    expect(parsed.xml).toBe(xml);
+    expect(parsed.sensors).toHaveLength(1);
+    expect(parsed.sensors[0]).toEqual(
+      expect.objectContaining({
+        nodeId: 2,
+        name: 'Pump A',
+        registers: [
+          expect.objectContaining({
+            name: 'Velocity',
+            address: 33,
+            localRegisterNumber: 1,
+          }),
+          expect.objectContaining({
+            name: 'Temperature',
+            address: 34,
+            localRegisterNumber: 2,
+          }),
+        ],
+      }),
+    );
+  });
+
   it('rejects WLConfig XML with more than one status register for a node', () => {
     const xml = `<?xml version="1.0" encoding="utf-8"?>
 <configuration>
