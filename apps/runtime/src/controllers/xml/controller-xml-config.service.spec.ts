@@ -1,10 +1,12 @@
 const mockUploadWlConfigXml = jest.fn();
 const mockCreateWlConfigUploadPlan = jest.fn();
 const mockReadControllerLocalRegister = jest.fn();
+const mockResetController = jest.fn();
 jest.mock('./controller-file-transfer', () => ({
   createWlConfigUploadPlan: mockCreateWlConfigUploadPlan,
   downloadWlConfigXml: jest.fn(),
   readControllerLocalRegister: mockReadControllerLocalRegister,
+  resetController: mockResetController,
   uploadWlConfigXml: mockUploadWlConfigXml,
 }));
 
@@ -55,6 +57,7 @@ describe('ControllerXmlConfigService upload verification', () => {
       chunkSizes: [10],
     });
     mockReadControllerLocalRegister.mockResolvedValue(1);
+    mockResetController.mockResolvedValue(undefined);
     mockLoggerDebug.mockClear();
     mockLoggerError.mockClear();
     mockLoggerInfo.mockClear();
@@ -82,6 +85,12 @@ describe('ControllerXmlConfigService upload verification', () => {
     expect(mockUploadWlConfigXml).toHaveBeenCalledWith(expect.any(String), {
       host: '192.168.1.1',
     });
+    expect(mockResetController).toHaveBeenCalledWith({
+      host: '192.168.1.1',
+    });
+    expect(
+      mockUploadWlConfigXml.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockResetController.mock.invocationCallOrder[0]);
     expect(mockReadControllerLocalRegister).not.toHaveBeenCalled();
 
     await jest.advanceTimersByTimeAsync(5000);
@@ -117,5 +126,15 @@ describe('ControllerXmlConfigService upload verification', () => {
       ),
       expect.any(Error),
     );
+  });
+
+  it('does not reset controller when XML upload fails', async () => {
+    mockUploadWlConfigXml.mockRejectedValue(new Error('IPC_PARAMS'));
+
+    await expect(
+      service.uploadControllerConfig(controller, []),
+    ).rejects.toThrow('Não foi possível enviar o WLConfig.xml');
+
+    expect(mockResetController).not.toHaveBeenCalled();
   });
 });

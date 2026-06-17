@@ -182,6 +182,49 @@ describe('SensorsService XML upload gate', () => {
     expect(sensorsRepository.insertSensor).not.toHaveBeenCalled();
   });
 
+  it('rejects more than one status register for the same node', async () => {
+    const existingSensor = sensorRecord({
+      id: 10,
+      nodeId: 2,
+      name: 'N2-Link',
+      registers: [
+        {
+          name: 'Link',
+          address: 40,
+          unit: '',
+          isHealthCheck: true,
+        },
+      ],
+    });
+    const newSensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 2,
+      name: 'N2-Extra-Link',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [
+        {
+          name: 'Status',
+          address: 39,
+          unit: '',
+          isHealthCheck: true,
+        },
+      ],
+      deletedAt: null,
+    };
+    sensorsRepository.findByControllerId.mockResolvedValue([existingSensor]);
+
+    await expect(service.postSensor(newSensor)).rejects.toThrow(
+      'Nó 2 deve ter apenas um registrador de status',
+    );
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
+    expect(sensorsRepository.insertSensor).not.toHaveBeenCalled();
+  });
+
   it('updates internal-only sensor fields without uploading XML', async () => {
     const currentSensor = sensorRecord({
       id: 12,

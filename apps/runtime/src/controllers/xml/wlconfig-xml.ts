@@ -88,12 +88,16 @@ export function parseWlConfigXml(xml: string): ParsedWlConfig {
     );
   }
 
+  const sensors = sensorsFromWlConfigDocument(document);
+
+  assertSingleStatusRegisterPerNode(sensors);
+
   return {
     xml,
     checksum: hashWlConfigXml(xml),
     document,
     controllerModel: controllerModelFromWlConfigDocument(document),
-    sensors: sensorsFromWlConfigDocument(document),
+    sensors,
   };
 }
 
@@ -102,6 +106,8 @@ export function buildWlConfigXml(
   sensors: ReadonlyArray<Sensor | NewSensor>,
   options: WlConfigBuildOptions = {},
 ): { xml: string; checksum: string } {
+  assertSingleStatusRegisterPerNode(sensors);
+
   const document = parseBaseWlConfigDocument(baseXml);
   const configuration = document.configuration;
   const { localRegisters, rules } = buildLocalRegistersAndRules(sensors);
@@ -315,6 +321,31 @@ function controllerModelFromWlConfigDocument(
   return (
     readStringAttribute(readFileInfo(document), 'device')?.trim() || undefined
   );
+}
+
+function assertSingleStatusRegisterPerNode(
+  sensors: ReadonlyArray<Pick<Sensor | NewSensor, 'nodeId' | 'registers'>>,
+): void {
+  const statusCountsByNodeId = new Map<number, number>();
+
+  for (const sensor of sensors) {
+    const statusCount = sensor.registers.filter(
+      (register) => register.isHealthCheck === true,
+    ).length;
+
+    if (statusCount === 0) continue;
+
+    const nextCount =
+      (statusCountsByNodeId.get(sensor.nodeId) ?? 0) + statusCount;
+
+    if (nextCount > 1) {
+      throw new WlConfigXmlError(
+        `Nó ${sensor.nodeId} deve ter apenas um registrador de status`,
+      );
+    }
+
+    statusCountsByNodeId.set(sensor.nodeId, nextCount);
+  }
 }
 
 function indexedLocalRegisters(

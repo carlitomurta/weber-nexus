@@ -16,6 +16,7 @@ import {
   createWlConfigUploadPlan,
   downloadWlConfigXml,
   readControllerLocalRegister,
+  resetController,
   uploadWlConfigXml,
 } from './controller-file-transfer';
 import {
@@ -117,6 +118,10 @@ export class ControllerXmlConfigService {
 
     try {
       await uploadWlConfigXml(xmlConfig.xml, { host: controller.ipAddress });
+      this.logger.info(
+        `WLConfig.xml enviado para ${controller.ipAddress}: checksum=${xmlConfig.checksum}`,
+      );
+      await resetController({ host: controller.ipAddress });
     } catch (error) {
       this.logger.error(
         `Falha ao enviar WLConfig.xml para ${controller.ipAddress}`,

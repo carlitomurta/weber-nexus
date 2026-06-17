@@ -4,6 +4,7 @@ export const SENSOR_READINGS_MEASUREMENT = 'sensor_readings';
 
 export type SensorReadingRegisterKind = 'metric' | 'health';
 export type HealthStatusText = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+type WritableSensorStatusText = Exclude<HealthStatusText, 'UNKNOWN'>;
 export type InfluxSensorReading = {
   time: string;
   controller_id: string;
@@ -33,9 +34,17 @@ export function buildSensorReadingsLineProtocol(
 ): string {
   const timestamp = toUnixNanoseconds(result.polledAt);
   const lines: string[] = [];
+  const statusByNodeId = writableStatusByNodeId(result);
 
   for (const sensorResult of result.results) {
-    for (const reading of sensorResult.registers) {
+    const writableStatus = statusByNodeId.get(sensorResult.sensor.nodeId);
+
+    if (!writableStatus) continue;
+
+    for (const reading of writableReadings(
+      sensorResult.registers,
+      writableStatus,
+    )) {
       const registerKind: SensorReadingRegisterKind = reading.register
         .isHealthCheck
         ? 'health'
@@ -83,6 +92,63 @@ export function formatHealthStatusText(rawValue: number): HealthStatusText {
   if (rawValue === 128) return 'ONLINE';
   if (rawValue === 13569) return 'OFFLINE';
   return 'UNKNOWN';
+}
+
+function writableSensorStatus(
+  readings: ControllerPollingResult['results'][number]['registers'],
+): WritableSensorStatusText | undefined {
+  const healthReadings = readings.filter(
+    (reading) => reading.register.isHealthCheck === true,
+  );
+  const healthReading = healthReadings[0];
+
+  if (healthReadings.length > 1) {
+    throw new Error('Sensor deve ter apenas um registrador de status');
+  }
+
+  if (!healthReading) return undefined;
+
+  const statusText = formatHealthStatusText(healthReading.rawValue);
+
+  return statusText === 'ONLINE' || statusText === 'OFFLINE'
+    ? statusText
+    : undefined;
+}
+
+function writableStatusByNodeId(
+  result: ControllerPollingResult,
+): Map<number, WritableSensorStatusText> {
+  const statusByNodeId = new Map<number, WritableSensorStatusText>();
+  const statusCountsByNodeId = new Map<number, number>();
+
+  for (const sensorResult of result.results) {
+    const statusText = writableSensorStatus(sensorResult.registers);
+
+    if (!statusText) continue;
+
+    const nextCount =
+      (statusCountsByNodeId.get(sensorResult.sensor.nodeId) ?? 0) + 1;
+
+    if (nextCount > 1) {
+      throw new Error(
+        `Nó ${sensorResult.sensor.nodeId} deve ter apenas um registrador de status`,
+      );
+    }
+
+    statusCountsByNodeId.set(sensorResult.sensor.nodeId, nextCount);
+    statusByNodeId.set(sensorResult.sensor.nodeId, statusText);
+  }
+
+  return statusByNodeId;
+}
+
+function writableReadings(
+  readings: ControllerPollingResult['results'][number]['registers'],
+  statusText: WritableSensorStatusText,
+): ControllerPollingResult['results'][number]['registers'] {
+  if (statusText === 'ONLINE') return readings;
+
+  return readings.filter((reading) => reading.register.isHealthCheck === true);
 }
 
 function toUnixNanoseconds(date: Date): string {

@@ -27,6 +27,7 @@ The platform must:
 - Persist readings and time series in InfluxDB.
 - Generate valid `WLConfig.xml` after configuration changes.
 - Upload `WLConfig.xml` using DXM Host-Initiated API on TCP port `8844`.
+- Reboot/Reset controller.
 - Keep Modbus and Host API access on trusted local/private networks only.
 
 ## Banner DXM Model Facts
@@ -437,8 +438,8 @@ CMD1002 <chunkLength>,<crc>,<chunkIndex>,<chunkData>\r\n
 11. Expect `RSP1002` for each chunk.
 12. Send `CMD1003\r\n`.
 13. Expect `RSP1003`.
-14. Treat controller reset/reload as expected after successful configuration upload.
-15. Reconnect after restart and verify the controller accepted the map.
+14. Send `CMD0200\r\n` command to reset the controller with the new configuration file after successful configuration upload.
+15. Reconnect after restart and verify if the controller accepted the map.
 
 Upload validation:
 
@@ -546,3 +547,4 @@ Suggested messages:
 - Save SQLite changes only after physical sync succeeds.
 - Store all timestamps in UTC.
 - Keep controller operations idempotent where possible.
+- Always reset/reboot controller after an upload.

@@ -51,6 +51,7 @@ When user requests an update on controller values, we should:
 3. Update the XML configuration file first.
 4. Upload it to the phisical controller.
 5. If controller return success, we finally change the data on SQLite, otherwise the operation is cancelled.
+6. Reset/Reboot the controller.
 
 #### Controller Delete
 
@@ -79,6 +80,7 @@ When user requests to create a new sensor on a controller, we should:
 3. Update the XML configuration file first.
 4. Upload it to the phisical controller.
 5. If controller return success, we finally change the data on SQLite, otherwise the operation is cancelled.
+6. Reset/Reboot the controller.
 
 #### Sensor Read
 
@@ -99,6 +101,7 @@ When user requests an update on sensor values, we should:
 3. Update the XML configuration file first.
 4. Upload it to the phisical controller.
 5. If controller return success, we finally change the data on SQLite, otherwise the operation is cancelled.
+6. Reset/Reboot the controller.
 
 #### Sensor Delete
 

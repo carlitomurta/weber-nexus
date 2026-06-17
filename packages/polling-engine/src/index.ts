@@ -73,6 +73,7 @@ type ControllerPollingJob = {
 };
 
 const DXM_LOCAL_REGISTER_UNIT_ID = 199;
+type SensorHealthStatus = "ONLINE" | "OFFLINE";
 
 export class PollingEngine {
   private readonly jobs = new Map<number, ControllerPollingJob>();
@@ -143,18 +144,106 @@ export class PollingEngine {
       job.connectionLogged = true;
     }
 
+    assertSingleStatusRegisterPerNode(job.sensors);
+
     const registerPlan = createControllerRegisterPlan(job.sensors);
+    const healthRegisterPlan = registerPlan.filter(
+      (entry) => entry.register.isHealthCheck,
+    );
+    const healthReadsByKey = await this.readRegisterPlan(
+      job,
+      healthRegisterPlan,
+      { allowMissing: true },
+    );
+    const statusByNodeId = new Map<number, SensorHealthStatus>();
+
+    for (const sensor of job.sensors) {
+      const healthRegister = sensor.registers.find(
+        (register) => register.isHealthCheck,
+      );
+      const healthReading =
+        healthRegister &&
+        healthReadsByKey.get(
+          registerPlanKey({ sensor, register: healthRegister }),
+        );
+      const status = sensorHealthStatus(healthReading?.rawValue);
+
+      if (status) {
+        statusByNodeId.set(sensor.nodeId, status);
+      }
+    }
+
+    const onlineRegisterPlan = registerPlan.filter(
+      (entry) =>
+        !entry.register.isHealthCheck &&
+        statusByNodeId.get(entry.sensor.nodeId) === "ONLINE",
+    );
+    const onlineReadsByKey = await this.readRegisterPlan(
+      job,
+      onlineRegisterPlan,
+      { allowMissing: false },
+    );
+    const readsByKey = new Map([...healthReadsByKey, ...onlineReadsByKey]);
+
+    const results: SensorPollingResult[] = [];
+
+    for (const sensor of job.sensors) {
+      const status = statusByNodeId.get(sensor.nodeId);
+
+      if (!status) continue;
+
+      const registers = [...sensor.registers]
+        .filter(
+          (register) =>
+            status === "ONLINE" || register.isHealthCheck === true,
+        )
+        .sort((a, b) => a.address - b.address)
+        .map((register) => {
+          const reading = readsByKey.get(registerPlanKey({ sensor, register }));
+
+          if (!reading) {
+            throw new Error(
+              `Valor mapeado ausente no sensor ${sensor.id}, registro ${register.address}`,
+            );
+          }
+
+          return reading;
+        });
+
+      if (registers.length === 0) continue;
+
+      results.push({
+        sensor,
+        registers,
+      });
+    }
+
+    await this.options.onData?.({
+      controller: job.controller,
+      results,
+      polledAt: new Date(),
+    });
+  }
+
+  private async readRegisterPlan(
+    job: ControllerPollingJob,
+    registerPlan: ControllerRegisterPlanEntry[],
+    options: { allowMissing: boolean },
+  ): Promise<Map<string, SensorRegisterPollingResult>> {
+    if (registerPlan.length === 0) return new Map();
+
     const holdingRegisters = await job.connection.readHoldingRegisters(
       DXM_LOCAL_REGISTER_UNIT_ID,
       registerPlan.map((entry) => entry.localRegisterNumber),
     );
-
     const readsByKey = new Map<string, SensorRegisterPollingResult>();
 
     registerPlan.forEach((entry, index) => {
       const rawValue = holdingRegisters[index]?.values[0];
 
       if (rawValue === undefined) {
+        if (options.allowMissing) return;
+
         throw new Error(
           `Valor ausente no controlador ${job.controller.id}, registro ${entry.register.address}`,
         );
@@ -175,34 +264,7 @@ export class PollingEngine {
       });
     });
 
-    const results: SensorPollingResult[] = [];
-
-    for (const sensor of job.sensors) {
-      const registers = [...sensor.registers]
-        .sort((a, b) => a.address - b.address)
-        .map((register) => {
-          const reading = readsByKey.get(registerPlanKey({ sensor, register }));
-
-          if (!reading) {
-            throw new Error(
-              `Valor mapeado ausente no sensor ${sensor.id}, registro ${register.address}`,
-            );
-          }
-
-          return reading;
-        });
-
-      results.push({
-        sensor,
-        registers,
-      });
-    }
-
-    await this.options.onData?.({
-      controller: job.controller,
-      results,
-      polledAt: new Date(),
-    });
+    return readsByKey;
   }
 
   private async runWithRetry(
@@ -349,4 +411,35 @@ function formatRegisterValue(
   if (rawValue === 128) return "ONLINE";
   if (rawValue === 13569) return "OFFLINE";
   return rawValue;
+}
+
+function sensorHealthStatus(
+  rawValue: number | undefined,
+): SensorHealthStatus | undefined {
+  if (rawValue === 128) return "ONLINE";
+  if (rawValue === 13569) return "OFFLINE";
+  return undefined;
+}
+
+function assertSingleStatusRegisterPerNode(sensors: PollingSensor[]): void {
+  const statusCountsByNodeId = new Map<number, number>();
+
+  for (const sensor of sensors) {
+    const statusCount = sensor.registers.filter(
+      (register) => register.isHealthCheck === true,
+    ).length;
+
+    if (statusCount === 0) continue;
+
+    const nextCount =
+      (statusCountsByNodeId.get(sensor.nodeId) ?? 0) + statusCount;
+
+    if (nextCount > 1) {
+      throw new Error(
+        `Nó ${sensor.nodeId} deve ter apenas um registrador de status`,
+      );
+    }
+
+    statusCountsByNodeId.set(sensor.nodeId, nextCount);
+  }
 }

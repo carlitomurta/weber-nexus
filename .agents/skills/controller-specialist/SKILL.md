@@ -44,6 +44,7 @@ A sensor must have a Modbus address, following the formula Register Number = (No
 
 Therefore, for a sensor with NodeId 1, the first register address would be 17 and the last would be 31.
 A controller can have several sensors with the same NodeId, but they cannot share the same register address.
+Each NodeId can have at most one status register for ONLINE/OFFLINE state; multiple status registers for the same NodeId are invalid and must be rejected.
 
 In our case, we will only communicate via Modbus, so we cannot establish a relationship between sensor names and the order of register values ​​returned by the controller.
 
@@ -97,7 +98,7 @@ The name of the file should ALWAYS be `WLConfig.xml` and follow the strict order
     - `<chunkIndex>` starts at 1 and increments after each sent chunk.
     - `<data>` chunk data.
 - Close the file with `CMD1003`.
-- After a success, the controller should reset automatically to startup the new configurations.
+- After a successful upload, reset the controller with `CMD0200\n\r` so the new holding registers are available.
 
 ### Error Handling
 

@@ -5,6 +5,7 @@ const WLCONFIG_FILENAME = 'WLConfig.xml';
 const CONTROLLER_API_PORT = 8844;
 const MAX_CHUNK_BYTES = 512;
 const DEFAULT_TIMEOUT_MS = 10000;
+const CONTROLLER_RESET_COMMAND = 'CMD0200\n\r';
 
 export type ControllerFileTransferOptions = {
   readonly host: string;
@@ -146,6 +147,20 @@ export async function uploadWlConfigXml(
   }
 }
 
+export async function resetController(
+  options: ControllerFileTransferOptions,
+): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const port = options.port ?? CONTROLLER_API_PORT;
+  const socket = await connectSocket(options.host, port, timeoutMs);
+
+  try {
+    await writeCommand(socket, CONTROLLER_RESET_COMMAND, timeoutMs);
+  } finally {
+    socket.end();
+  }
+}
+
 export function createWlConfigUploadPlan(xml: string): WlConfigUploadPlan {
   return createWlConfigUpload(xml).plan;
 }
@@ -254,6 +269,41 @@ async function writeCommandAndWait(
   command: string,
 ): Promise<string> {
   return writeBufferAndWait(reader, socket, Buffer.from(command, 'utf8'));
+}
+
+async function writeCommand(
+  socket: net.Socket,
+  command: string,
+  timeoutMs: number,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(
+        new Error('Tempo esgotado ao enviar comando para o controlador'),
+      );
+    }, timeoutMs);
+
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      socket.off('error', onError);
+    };
+
+    const onError = (error: Error): void => {
+      cleanup();
+      reject(
+        new Error('Erro de conexão ao enviar comando para o controlador', {
+          cause: error,
+        }),
+      );
+    };
+
+    socket.once('error', onError);
+    socket.write(command, 'utf8', () => {
+      cleanup();
+      resolve();
+    });
+  });
 }
 
 async function writeBufferAndWait(

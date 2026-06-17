@@ -84,6 +84,24 @@ describe('WLConfig XML helpers', () => {
     ]);
   });
 
+  it('rejects WLConfig XML with more than one status register for a node', () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <local_regs>
+    <reg name="N1 Link A" num="1" perms="1" />
+    <reg name="N1 Link B" num="2" perms="1" />
+  </local_regs>
+  <rtu_read>
+    <rule count="1" localreg="1" name="N1-Link-A" remreg="24" />
+    <rule count="1" localreg="2" name="N1-Link-B" remreg="25" />
+  </rtu_read>
+</configuration>`;
+
+    expect(() => parseWlConfigXml(xml)).toThrow(
+      'Nó 1 deve ter apenas um registrador de status',
+    );
+  });
+
   it('reads controller model from file info device', () => {
     const parsed = parseWlConfigXml(xmlWithFileInfo);
 
@@ -138,6 +156,51 @@ describe('WLConfig XML helpers', () => {
       }),
     );
     expect(parsed.sensors[0].registers).toHaveLength(2);
+  });
+
+  it('rejects generated XML with more than one status register for a node', () => {
+    const sensors: NewSensor[] = [
+      {
+        controllerId: 1,
+        nodeId: 2,
+        name: 'N2-Link-A',
+        description: null,
+        model: null,
+        location: null,
+        operationalStatus: 'active',
+        registers: [
+          {
+            name: 'Link A',
+            address: 40,
+            unit: '',
+            isHealthCheck: true,
+          },
+        ],
+        deletedAt: null,
+      },
+      {
+        controllerId: 1,
+        nodeId: 2,
+        name: 'N2-Link-B',
+        description: null,
+        model: null,
+        location: null,
+        operationalStatus: 'active',
+        registers: [
+          {
+            name: 'Link B',
+            address: 39,
+            unit: '',
+            isHealthCheck: true,
+          },
+        ],
+        deletedAt: null,
+      },
+    ];
+
+    expect(() => buildWlConfigXml(validXml, sensors)).toThrow(
+      'Nó 2 deve ter apenas um registrador de status',
+    );
   });
 
   it('updates file info using controller model and upload timestamp', () => {

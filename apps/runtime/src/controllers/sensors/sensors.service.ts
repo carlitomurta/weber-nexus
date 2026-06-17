@@ -191,6 +191,18 @@ export class SensorsService {
         `Endereço de registrador ${conflictAddress} já está cadastrado no controlador ${sensor.controllerId}`,
       );
     }
+
+    const duplicatedStatusNodeId = this.findDuplicatedStatusNodeId(
+      sensor,
+      currentSensors,
+      sensorId,
+    );
+
+    if (duplicatedStatusNodeId !== undefined) {
+      throw new BadRequestException(
+        `Nó ${duplicatedStatusNodeId} deve ter apenas um registrador de status`,
+      );
+    }
   }
 
   private findConflictingRegisterAddress(
@@ -212,6 +224,38 @@ export class SensorsService {
           return register.address;
         }
       }
+    }
+
+    return undefined;
+  }
+
+  private findDuplicatedStatusNodeId(
+    sensor: NewSensor | SensorWrite,
+    currentSensors: ReadonlyArray<Sensor>,
+    sensorId?: number,
+  ): number | undefined {
+    const statusCountsByNodeId = new Map<number, number>();
+    const nextSensors = [
+      ...currentSensors.filter(
+        (currentSensor) =>
+          sensorId === undefined || currentSensor.id !== sensorId,
+      ),
+      sensor,
+    ];
+
+    for (const item of nextSensors) {
+      const statusCount = item.registers.filter(
+        (register) => register.isHealthCheck === true,
+      ).length;
+
+      if (statusCount === 0) continue;
+
+      const nextCount =
+        (statusCountsByNodeId.get(item.nodeId) ?? 0) + statusCount;
+
+      if (nextCount > 1) return item.nodeId;
+
+      statusCountsByNodeId.set(item.nodeId, nextCount);
     }
 
     return undefined;

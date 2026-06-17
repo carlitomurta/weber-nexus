@@ -62,6 +62,7 @@ The name of the file should ALWAYS be `WLConfig.xml` and follow the strict order
     - `<chunkIndex>` starts at 1 and increments after each sent chunk.
     - `<data>` chunk data.
 - Close the file with `CMD1003`.
+- Send a `CMD0200` command to reset the controller with the new configuration file.
 - After a success, the controller should reset automatically to startup the new configurations.
 
 ### Important details

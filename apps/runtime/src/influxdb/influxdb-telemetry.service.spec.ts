@@ -380,6 +380,17 @@ function pollingResult(): ControllerPollingResult {
         registers: [
           {
             register: {
+              name: 'Status',
+              address: 16,
+              unit: '',
+              isHealthCheck: true,
+            },
+            rawValue: 128,
+            scaledValue: 128,
+            displayValue: 'ONLINE',
+          },
+          {
+            register: {
               name: 'Vibração',
               address: 49,
               unit: 'mm/s',

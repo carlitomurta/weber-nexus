@@ -6,6 +6,7 @@ import {
   encodeXmlForController,
   formatModbusCrc16,
   readControllerLocalRegister,
+  resetController,
   uploadWlConfigXml,
 } from './controller-file-transfer';
 
@@ -195,6 +196,36 @@ describe('controller file transfer upload protocol', () => {
     } finally {
       await server.close();
     }
+  });
+});
+
+describe('controller reset protocol', () => {
+  it('sends controller reset command without waiting for a response', async () => {
+    const received: Buffer[] = [];
+    let resolveReceived: () => void = () => undefined;
+    const receivedCommand = new Promise<void>((resolve) => {
+      resolveReceived = resolve;
+    });
+    const server = await startUploadServer((command, _index, socket) => {
+      received.push(command);
+      resolveReceived();
+      socket.destroy();
+    });
+
+    try {
+      await expect(
+        resetController({
+          host: '127.0.0.1',
+          port: server.port,
+          timeoutMs: 1000,
+        }),
+      ).resolves.toBeUndefined();
+      await receivedCommand;
+    } finally {
+      await server.close();
+    }
+
+    expect(commandText(received[0])).toBe('CMD0200');
   });
 });
 
