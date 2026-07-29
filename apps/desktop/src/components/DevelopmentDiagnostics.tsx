@@ -1,13 +1,26 @@
-import { AlertTriangle, Bug, ChevronDown, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Bug,
+  ChevronDown,
+  Database,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { setApiIssueReporter } from "@/lib/api";
+import {
+  apiErrorMessage,
+  getLatestRawHoldingRegisters,
+  setApiIssueReporter,
+} from "@/lib/api";
 import type {
   AppBuildInfo,
   DesktopDiagnostic,
   DesktopDiagnosticInput,
   DesktopDiagnosticLevel,
   DesktopDiagnosticSource,
+  RawHoldingRegisterSnapshot,
 } from "@/types/diagnostics";
 
 const MAX_DIAGNOSTICS = 100;
@@ -19,6 +32,29 @@ export function DevelopmentDiagnostics() {
   const [fatalNotice, setFatalNotice] = useState<DesktopDiagnostic | null>(
     null,
   );
+  const [rawSnapshots, setRawSnapshots] = useState<
+    RawHoldingRegisterSnapshot[]
+  >([]);
+  const [rawError, setRawError] = useState<string | null>(null);
+  const [isRawLoading, setIsRawLoading] = useState(false);
+
+  const loadRawHoldingRegisters = useCallback(async () => {
+    setIsRawLoading(true);
+
+    try {
+      setRawSnapshots(await getLatestRawHoldingRegisters());
+      setRawError(null);
+    } catch (error) {
+      setRawError(
+        apiErrorMessage(
+          error,
+          "Não foi possível carregar registradores raw.",
+        ),
+      );
+    } finally {
+      setIsRawLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +185,21 @@ export function DevelopmentDiagnostics() {
     };
   }, [buildInfo]);
 
+  useEffect(() => {
+    if (!buildInfo?.diagnosticsEnabled || !isExpanded) {
+      return;
+    }
+
+    void loadRawHoldingRegisters();
+    const interval = window.setInterval(() => {
+      void loadRawHoldingRegisters();
+    }, 3000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [buildInfo?.diagnosticsEnabled, isExpanded, loadRawHoldingRegisters]);
+
   const counts = useMemo(() => {
     return diagnostics.reduce(
       (current, diagnostic) => ({
@@ -230,6 +281,13 @@ export function DevelopmentDiagnostics() {
             <Counter label="FATAL" value={counts.fatal} tone="fatal" />
           </div>
 
+          <RawHoldingRegistersPanel
+            snapshots={rawSnapshots}
+            error={rawError}
+            isLoading={isRawLoading}
+            onRefresh={loadRawHoldingRegisters}
+          />
+
           <div className="max-h-[42vh] overflow-auto">
             {diagnostics.length === 0 ? (
               <p className="px-4 py-6 text-center text-muted-foreground">
@@ -277,6 +335,115 @@ export function DevelopmentDiagnostics() {
         </button>
       )}
     </div>
+  );
+}
+
+function RawHoldingRegistersPanel({
+  snapshots,
+  error,
+  isLoading,
+  onRefresh,
+}: {
+  snapshots: RawHoldingRegisterSnapshot[];
+  error: string | null;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  const registerCount = snapshots.reduce(
+    (total, snapshot) => total + snapshot.registers.length,
+    0,
+  );
+
+  return (
+    <section className="border-b border-border bg-background/50">
+      <header className="flex h-10 items-center justify-between border-b border-border/80 px-3">
+        <div className="flex min-w-0 items-center gap-2 font-mono">
+          <Database className="size-4 shrink-0 text-accent" />
+          <span className="truncate font-semibold uppercase text-foreground">
+            Holding bruto
+          </span>
+          <span className="rounded bg-muted px-2 py-0.5 text-muted-foreground">
+            {registerCount}
+          </span>
+        </div>
+        <button
+          type="button"
+          aria-label="Atualizar registradores raw"
+          title="Atualizar registradores raw"
+          onClick={onRefresh}
+          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <RefreshCw
+            className={`size-4 ${isLoading ? "animate-spin" : ""}`}
+          />
+        </button>
+      </header>
+
+      <div className="max-h-52 overflow-auto">
+        {isLoading && snapshots.length === 0 ? (
+          <p className="px-4 py-5 text-center text-muted-foreground">
+            Carregando registradores raw.
+          </p>
+        ) : error ? (
+          <p className="px-4 py-5 text-center text-destructive">{error}</p>
+        ) : snapshots.length === 0 ? (
+          <p className="px-4 py-5 text-center text-muted-foreground">
+            Nenhum dado raw coletado.
+          </p>
+        ) : (
+          snapshots.map((snapshot) => (
+            <article
+              key={snapshot.controllerId}
+              className="border-b border-border/70 px-3 py-2 last:border-b-0"
+            >
+              <div className="flex flex-wrap items-center gap-2 font-mono">
+                <span className="font-semibold text-foreground">
+                  {snapshot.controllerName}
+                </span>
+                <span className="text-muted-foreground">
+                  {snapshot.ipAddress}
+                </span>
+                <span className="ml-auto text-muted-foreground">
+                  {formatTime(snapshot.polledAt)}
+                </span>
+              </div>
+
+              <table className="mt-2 w-full table-fixed border-collapse font-mono">
+                <thead className="text-muted-foreground">
+                  <tr className="border-b border-border/70 text-left">
+                    <th className="w-16 py-1 pr-2 font-medium">Local</th>
+                    <th className="w-16 py-1 pr-2 font-medium">End.</th>
+                    <th className="w-20 py-1 pr-2 font-medium">Bruto</th>
+                    <th className="py-1 font-medium">Origem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshot.registers.map((register) => (
+                    <tr
+                      key={`${register.sensorId}-${register.registerAddress}`}
+                      className="border-b border-border/40 last:border-b-0"
+                    >
+                      <td className="py-1 pr-2 text-muted-foreground">
+                        {register.localRegisterNumber ?? "-"}
+                      </td>
+                      <td className="py-1 pr-2 text-muted-foreground">
+                        {register.registerAddress}
+                      </td>
+                      <td className="py-1 pr-2 text-foreground">
+                        {register.rawValue}
+                      </td>
+                      <td className="truncate py-1 text-muted-foreground">
+                        {register.sensorName} / {register.registerName}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
   );
 }
 

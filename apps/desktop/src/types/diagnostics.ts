@@ -30,3 +30,21 @@ export type DesktopDiagnosticInput = Omit<
   DesktopDiagnostic,
   "id" | "timestamp"
 >;
+
+export type RawHoldingRegisterSnapshot = {
+  controllerId: number;
+  controllerName: string;
+  ipAddress: string;
+  polledAt: string;
+  registers: RawHoldingRegisterValue[];
+};
+
+export type RawHoldingRegisterValue = {
+  sensorId: number;
+  sensorName: string;
+  nodeId: number;
+  registerName: string;
+  registerAddress: number;
+  localRegisterNumber: number | null;
+  rawValue: number;
+};

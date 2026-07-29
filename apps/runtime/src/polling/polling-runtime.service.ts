@@ -20,11 +20,33 @@ import {
   toPollingSensors,
 } from './polling-controller.mapper';
 
+export type RawHoldingRegisterSnapshot = {
+  controllerId: number;
+  controllerName: string;
+  ipAddress: string;
+  polledAt: string;
+  registers: RawHoldingRegisterValue[];
+};
+
+export type RawHoldingRegisterValue = {
+  sensorId: number;
+  sensorName: string;
+  nodeId: number;
+  registerName: string;
+  registerAddress: number;
+  localRegisterNumber: number | null;
+  rawValue: number;
+};
+
 @Injectable()
 export class PollingRuntimeService
   implements OnApplicationBootstrap, OnApplicationShutdown
 {
   private readonly logger = new Logger('runtime/polling-runtime.service.ts');
+  private readonly rawHoldingRegisterSnapshots = new Map<
+    number,
+    RawHoldingRegisterSnapshot
+  >();
 
   private readonly pollingEngine = new PollingEngine({
     retry: {
@@ -65,6 +87,13 @@ export class PollingRuntimeService
 
   stopController(controllerId: number): void {
     this.pollingEngine.stopController(controllerId);
+    this.rawHoldingRegisterSnapshots.delete(controllerId);
+  }
+
+  getLatestRawHoldingRegisterSnapshots(): RawHoldingRegisterSnapshot[] {
+    return [...this.rawHoldingRegisterSnapshots.values()].sort(
+      (a, b) => a.controllerId - b.controllerId,
+    );
   }
 
   async refreshController(controllerId: number): Promise<void> {
@@ -117,6 +146,10 @@ export class PollingRuntimeService
   private async handlePollingResult(
     result: ControllerPollingResult,
   ): Promise<void> {
+    this.rawHoldingRegisterSnapshots.set(
+      result.controller.id,
+      toRawHoldingRegisterSnapshot(result),
+    );
     this.logPollingResult(result);
     await this.markControllerPollingStatus(result.controller.id, 'active');
     await this.influxdbTelemetryService.writePollingResult(result);
@@ -176,4 +209,38 @@ export class PollingRuntimeService
       ),
     );
   }
+}
+
+function toRawHoldingRegisterSnapshot(
+  result: ControllerPollingResult,
+): RawHoldingRegisterSnapshot {
+  return {
+    controllerId: result.controller.id,
+    controllerName: result.controller.name,
+    ipAddress: result.controller.ipAddress,
+    polledAt: result.polledAt.toISOString(),
+    registers: result.results
+      .flatMap((sensorResult) =>
+        sensorResult.registers.map((registerResult) => ({
+          sensorId: sensorResult.sensor.id,
+          sensorName: sensorResult.sensor.name,
+          nodeId: sensorResult.sensor.nodeId,
+          registerName: registerResult.register.name,
+          registerAddress: registerResult.register.address,
+          localRegisterNumber:
+            registerResult.register.localRegisterNumber ?? null,
+          rawValue: registerResult.rawValue,
+        })),
+      )
+      .sort((a, b) => {
+        const localA = a.localRegisterNumber ?? Number.MAX_SAFE_INTEGER;
+        const localB = b.localRegisterNumber ?? Number.MAX_SAFE_INTEGER;
+
+        if (localA !== localB) {
+          return localA - localB;
+        }
+
+        return a.registerAddress - b.registerAddress;
+      }),
+  };
 }
