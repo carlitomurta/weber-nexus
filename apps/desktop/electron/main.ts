@@ -10,7 +10,7 @@ import type {
   AppBuildInfo,
   DesktopDiagnostic,
   DesktopDiagnosticInput,
-} from "../src/types/diagnostics";
+} from "../src/types/diagnostics.type";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { app, BrowserWindow, ipcMain } = electron;

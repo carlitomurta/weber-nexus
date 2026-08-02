@@ -11,9 +11,9 @@ export const controllerSchema = z.object({
   pollingIntervalMs: z.number(),
   xmlConfig: z.string().nullable().optional(),
   xmlConfigChecksum: z.string().nullable().optional(),
-  xmlLastSyncedAt: z.date().nullish(),
-  createdAt: z.date().nullish(),
-  updatedAt: z.date().nullish(),
+  xmlLastSyncedAt: z.coerce.date().nullish(),
+  createdAt: z.coerce.date().nullish(),
+  updatedAt: z.coerce.date().nullish(),
 });
 
 export const controllersSchema = z.array(controllerSchema);

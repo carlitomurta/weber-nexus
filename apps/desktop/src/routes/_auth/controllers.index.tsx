@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, Cpu } from "lucide-react";
 
 import { PageTitle } from "@/components/shared/PageTitle";
-import { useControllers } from "@/hooks/useControllers";
-import { useSensors } from "@/hooks/useSensors";
+import { useControllers } from "@/hooks/react-query/useControllers";
+import { useSensors } from "@/hooks/react-query/useSensors";
 import { formatPollingInterval } from "@/utils/formatPollingInterval";
 
 import type { Controller } from "../../../types/controllers.type";

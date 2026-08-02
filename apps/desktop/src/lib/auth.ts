@@ -1,11 +1,6 @@
-const KEY = "nexus_auth_user";
+import { authUserSchema, type AuthUser } from "../../types/auth.type";
 
-export type AuthUser = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-};
+const KEY = "nexus_auth_user";
 
 export function login(user: AuthUser) {
   if (typeof window === "undefined") return;
@@ -27,7 +22,7 @@ export function currentUser(): AuthUser | null {
   }
 
   try {
-    return JSON.parse(user) as AuthUser;
+    return authUserSchema.parse(JSON.parse(user));
   } catch {
     logout();
     return null;

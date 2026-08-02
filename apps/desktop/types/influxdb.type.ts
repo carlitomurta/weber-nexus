@@ -18,4 +18,6 @@ export const influxSensorReadingSchema = z.object({
   register_name: z.string(),
 });
 
+export const influxSensorReadingsSchema = z.array(influxSensorReadingSchema);
+
 export type InfluxSensorReading = z.infer<typeof influxSensorReadingSchema>;

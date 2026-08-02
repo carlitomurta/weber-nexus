@@ -10,7 +10,7 @@ export const sensorRegisterSchema = z.object({
   isHealthCheck: z.boolean().optional(),
 });
 
-const sensorSchema = z.object({
+export const sensorSchema = z.object({
   id: z.number(),
   controllerId: z.number(),
   nodeId: z.number(),
@@ -19,9 +19,11 @@ const sensorSchema = z.object({
   model: z.string().nullable(),
   location: z.string().nullable(),
   registers: z.array(sensorRegisterSchema),
-  createdAt: z.date().nullish(),
-  updatedAt: z.date().nullish(),
+  createdAt: z.coerce.date().nullish(),
+  updatedAt: z.coerce.date().nullish(),
 });
+
+export const sensorsSchema = z.array(sensorSchema);
 
 export type SensorRegister = z.infer<typeof sensorRegisterSchema>;
 export type Sensor = z.infer<typeof sensorSchema>;

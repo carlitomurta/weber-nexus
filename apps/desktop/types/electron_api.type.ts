@@ -1,7 +1,7 @@
 import type {
   AppBuildInfo,
   DesktopDiagnostic,
-} from "../src/types/diagnostics";
+} from "../src/types/diagnostics.type";
 
 export type ElectronApi = {
   app: {

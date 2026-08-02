@@ -1,8 +1,11 @@
 import axios from "axios";
-import type {
-  DesktopDiagnosticInput,
-  RawHoldingRegisterSnapshot,
-} from "@/types/diagnostics";
+import {
+  rawHoldingRegisterSnapshotsSchema,
+  runtimeHealthResponseSchema,
+  type RuntimeHealthResponse,
+  type DesktopDiagnosticInput,
+  type RawHoldingRegisterSnapshot,
+} from "@/types/diagnostics.type";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_RUNTIME_API_URL ?? "http://localhost:3000",
@@ -32,28 +35,23 @@ api.interceptors.response.use(
   },
 );
 
-export type RuntimeHealthResponse = {
-  status: "ready";
-  timestamp: string;
-};
-
 export async function getRuntimeHealth(): Promise<RuntimeHealthResponse> {
-  const { data } = await api.get<RuntimeHealthResponse>("/runtime/health", {
+  const { data } = await api.get<unknown>("/runtime/health", {
     timeout: 1000,
   });
 
-  return data;
+  return runtimeHealthResponseSchema.parse(data);
 }
 
 export async function getLatestRawHoldingRegisters(): Promise<
   RawHoldingRegisterSnapshot[]
 > {
-  const { data } = await api.get<RawHoldingRegisterSnapshot[]>(
+  const { data } = await api.get<unknown>(
     "/diagnostics/holding-registers/latest",
     { timeout: 1000 },
   );
 
-  return data;
+  return rawHoldingRegisterSnapshotsSchema.parse(data);
 }
 
 type RuntimeErrorResponse = {

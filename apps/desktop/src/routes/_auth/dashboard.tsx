@@ -11,12 +11,12 @@ import {
 } from "recharts";
 
 import { PageTitle } from "@/components/shared/PageTitle";
-import { useControllers } from "@/hooks/useControllers";
+import { useControllers } from "@/hooks/react-query/useControllers";
 import {
   type InfluxReadingsRange,
   pollingRefetchInterval,
   useInfluxReadings,
-} from "@/hooks/useInfluxReadings";
+} from "@/hooks/react-query/useInfluxReadings";
 import { apiErrorMessage } from "@/lib/api";
 
 import dayjs from "dayjs";
@@ -32,15 +32,15 @@ const rangeOptions: { label: string; value: InfluxReadingsRange }[] = [
   { label: "1 ano", value: "1y" },
   { label: "2 anos", value: "2y" },
 ];
-const chartColors = [
-  "var(--primary)",
-  "var(--warning)",
-  "var(--success)",
-  "#38bdf8",
-  "#f472b6",
-  "#a78bfa",
-  "#fb7185",
-  "#34d399",
+const chartPalette = [
+  { color: "var(--primary)", swatchClassName: "bg-primary" },
+  { color: "var(--warning)", swatchClassName: "bg-warning" },
+  { color: "var(--success)", swatchClassName: "bg-success" },
+  { color: "#38bdf8", swatchClassName: "bg-sky-400" },
+  { color: "#f472b6", swatchClassName: "bg-pink-400" },
+  { color: "#a78bfa", swatchClassName: "bg-violet-400" },
+  { color: "#fb7185", swatchClassName: "bg-rose-400" },
+  { color: "#34d399", swatchClassName: "bg-emerald-400" },
 ];
 
 export const Route = createFileRoute("/_auth/dashboard")({
@@ -317,6 +317,7 @@ type ChartSeries = {
   label: string;
   color: string;
   gradientId: string;
+  swatchClassName: string;
 };
 
 type ChartRow = {
@@ -332,13 +333,14 @@ function buildChartSeries(readings: InfluxSensorReading[]): ChartSeries[] {
 
     if (seriesByKey.has(key)) return;
 
-    const color = stableChartColor(key);
+    const paletteItem = stableChartPaletteItem(key);
 
     seriesByKey.set(key, {
       key,
       label: `${reading.register_name} · ${reading.sensor_name}`,
-      color,
+      color: paletteItem.color,
       gradientId: `${key}_gradient`,
+      swatchClassName: paletteItem.swatchClassName,
     });
   });
 
@@ -398,14 +400,14 @@ function registerChartKey(reading: InfluxSensorReading): string {
   ].join("_");
 }
 
-function stableChartColor(value: string): string {
+function stableChartPaletteItem(value: string): (typeof chartPalette)[number] {
   let hash = 0;
 
   for (const character of value) {
     hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   }
 
-  return chartColors[hash % chartColors.length];
+  return chartPalette[hash % chartPalette.length];
 }
 
 function formatLocalDateTime(value: string | null): string {
@@ -506,7 +508,7 @@ function ChartFilters({
   );
 }
 
-function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
+function ChartLegend({ items }: { items: ChartSeries[] }) {
   if (items.length === 0) {
     return (
       <div className="mt-2 text-[11px] text-muted-foreground">
@@ -523,8 +525,7 @@ function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
           className="flex items-center gap-1.5 text-[10px] font-mono tracking-[0.12em] uppercase text-muted-foreground"
         >
           <span
-            className="inline-block size-2 rounded-sm"
-            style={{ background: it.color }}
+            className={`inline-block size-2 rounded-sm ${it.swatchClassName}`}
           />
           {it.label}
         </div>

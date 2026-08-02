@@ -3,16 +3,11 @@ import { type ComponentType, type FormEvent, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { isAxiosError } from "axios";
 import { Lock, Mail } from "lucide-react";
-import { z } from "zod";
 
 import { AppLogo } from "@/components/shared/AppLogo";
-import { useLogin } from "@/hooks/useLogin";
+import { useLogin } from "@/hooks/react-query/useLogin";
 import { login } from "@/lib/auth";
-
-const loginSchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-});
+import { loginInputSchema } from "../../types/auth.type";
 
 interface FieldProps {
   icon: ComponentType<{ className?: string }>;
@@ -38,7 +33,7 @@ function LoginPage() {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
-    const credentials = loginSchema.safeParse({
+    const credentials = loginInputSchema.safeParse({
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
     });

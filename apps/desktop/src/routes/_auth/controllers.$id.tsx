@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, MapPin, Radio } from "lucide-react";
 
 import { StatusPill, type SensorStatus } from "@/components/shared/StatusPill";
-import { useControllers } from "@/hooks/useControllers";
-import { useInfluxReadings } from "@/hooks/useInfluxReadings";
-import { useSensors } from "@/hooks/useSensors";
+import { useControllers } from "@/hooks/react-query/useControllers";
+import { useInfluxReadings } from "@/hooks/react-query/useInfluxReadings";
+import { useSensors } from "@/hooks/react-query/useSensors";
 import { apiErrorMessage } from "@/lib/api";
 import { formatPollingInterval } from "@/utils/formatPollingInterval";
 

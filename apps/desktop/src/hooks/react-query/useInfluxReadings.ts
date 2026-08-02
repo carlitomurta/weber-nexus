@@ -1,8 +1,13 @@
-import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 
-import type { Controller } from "../../types/controllers.type";
-import type { InfluxSensorReading } from "../../types/influxdb.type";
+import { api } from "@/lib/api";
+
+import type { Controller } from "../../../types/controllers.type";
+import {
+  influxSensorReadingsSchema,
+  type InfluxSensorReading,
+} from "../../../types/influxdb.type";
+import { influxReadingKeys } from "./queryKeys";
 
 const DEFAULT_REFETCH_INTERVAL_MS = 300000;
 
@@ -20,26 +25,21 @@ export function useInfluxReadings(
   const includeHealth = options.includeHealth === true;
 
   return useQuery({
-    queryKey: [
-      "influxdb",
-      "readings",
+    queryKey: influxReadingKeys.byController(
       controller?.id ?? null,
       range,
       includeHealth,
-    ],
+    ),
     queryFn: async () => {
-      const { data } = await api.get<InfluxSensorReading[]>(
-        "/influxdb/readings",
-        {
-          params: {
-            range,
-            controllerId: controller?.id,
-            includeHealth: includeHealth || undefined,
-          },
+      const { data } = await api.get<unknown>("/influxdb/readings", {
+        params: {
+          range,
+          controllerId: controller?.id,
+          includeHealth: includeHealth || undefined,
         },
-      );
+      });
 
-      return data;
+      return influxSensorReadingsSchema.parse(data);
     },
     enabled: controller !== null,
     refetchInterval: controller
@@ -48,7 +48,9 @@ export function useInfluxReadings(
   });
 }
 
-export function pollingRefetchInterval(controllers: Controller[]): number {
+export function pollingRefetchInterval(
+  controllers: ReadonlyArray<Controller>,
+): number {
   const intervals = controllers
     .map((controller) => controller.pollingIntervalMs)
     .filter((interval) => Number.isFinite(interval) && interval > 0);
@@ -56,3 +58,5 @@ export function pollingRefetchInterval(controllers: Controller[]): number {
   if (intervals.length === 0) return DEFAULT_REFETCH_INTERVAL_MS;
   return Math.min(...intervals);
 }
+
+export type { InfluxSensorReading };

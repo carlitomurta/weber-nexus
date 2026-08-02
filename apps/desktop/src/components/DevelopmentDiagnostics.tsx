@@ -21,7 +21,7 @@ import type {
   DesktopDiagnosticLevel,
   DesktopDiagnosticSource,
   RawHoldingRegisterSnapshot,
-} from "@/types/diagnostics";
+} from "@/types/diagnostics.type";
 
 const MAX_DIAGNOSTICS = 100;
 

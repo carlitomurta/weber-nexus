@@ -8,13 +8,13 @@ import {
   useDeleteController,
   useSyncControllerXml,
   useUpdateController,
-} from "@/hooks/useControllers";
+} from "@/hooks/react-query/useControllers";
 import {
   useCreateSensor,
   useDeleteSensor,
   useSensors,
   useUpdateSensor,
-} from "@/hooks/useSensors";
+} from "@/hooks/react-query/useSensors";
 import { apiErrorMessage } from "@/lib/api";
 
 import type {
