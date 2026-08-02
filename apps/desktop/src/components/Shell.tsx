@@ -1,11 +1,12 @@
 import { AppLogo } from "@/components/shared/AppLogo";
 import { currentUser } from "@/lib/auth";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, Cog, Cpu, LayoutDashboard, LogOut } from "lucide-react";
+import { Activity, Boxes, Cog, Cpu, LayoutDashboard, LogOut } from "lucide-react";
 
 const nav = [
   { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { to: "/controllers", label: "Controladores", icon: Cpu },
+  { to: "/equipment", label: "Equipamentos", icon: Boxes },
   { to: "/settings", label: "Configurações", icon: Cog },
 ];
 

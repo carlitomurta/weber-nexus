@@ -30,7 +30,7 @@ function AdminPage() {
               <Shield className="size-3" /> Administração
             </div>
             <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-              Cadastro de Controladores
+              Configurações
             </h1>
             <div className="mt-1 text-sm text-muted-foreground">
               Gerencie controladores e configure os registros dos sensores

@@ -5,6 +5,17 @@ export {
   type NewController,
 } from "./repositories/controllers.repository.js";
 export {
+  EquipmentRepository,
+  type Equipment,
+  type EquipmentStandardClassification,
+  type EquipmentType,
+  type EquipmentWrite,
+  type NewEquipment,
+  type NewSensorInstallation,
+  type SensorInstallation,
+  type Standard,
+} from "./repositories/equipment.repository.js";
+export {
   DEFAULT_INFLUXDB_AUTH_TOKEN,
   InfluxConfigsRepository,
   type InfluxConfig,

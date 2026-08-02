@@ -71,6 +71,13 @@
       "when": 1781136000000,
       "tag": "0009_controller_xml_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1785694737389,
+      "tag": "0010_glossy_warlock",
+      "breakpoints": true
     }
   ]
 }

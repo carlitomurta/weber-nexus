@@ -6,6 +6,11 @@ export const sensorKeys = {
   all: ["sensors"] as const,
 };
 
+export const equipmentKeys = {
+  all: ["equipment"] as const,
+  types: ["equipment-types"] as const,
+};
+
 export const influxReadingKeys = {
   all: ["influxdb", "readings"] as const,
   byController: (

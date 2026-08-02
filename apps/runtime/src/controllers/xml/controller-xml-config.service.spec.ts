@@ -46,6 +46,9 @@ const controller: Pick<Controller, 'ipAddress' | 'model' | 'xmlConfig'> = {
 
 describe('ControllerXmlConfigService upload verification', () => {
   let service: ControllerXmlConfigService;
+  const runtimeEnv = {
+    isControllerXmlHardwareSyncDisabled: jest.fn().mockReturnValue(false),
+  };
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -63,7 +66,12 @@ describe('ControllerXmlConfigService upload verification', () => {
     mockLoggerInfo.mockClear();
     mockLoggerWarn.mockClear();
 
-    service = new ControllerXmlConfigService({} as never, {} as never);
+    runtimeEnv.isControllerXmlHardwareSyncDisabled.mockReturnValue(false);
+    service = new ControllerXmlConfigService(
+      {} as never,
+      {} as never,
+      runtimeEnv as never,
+    );
   });
 
   afterEach(() => {

@@ -2,6 +2,7 @@ import { Global, Module } from "@nestjs/common";
 
 import { DatabaseProvider } from "./database.provider.js";
 import { ControllersRepository } from "./repositories/controllers.repository.js";
+import { EquipmentRepository } from "./repositories/equipment.repository.js";
 import { InfluxConfigsRepository } from "./repositories/influx-configs.repository.js";
 import { InfluxWriteQueueRepository } from "./repositories/influx-write-queue.repository.js";
 import { SensorsRepository } from "./repositories/sensors.repository.js";
@@ -12,6 +13,7 @@ import { UsersRepository } from "./repositories/users.repository.js";
   providers: [
     DatabaseProvider,
     ControllersRepository,
+    EquipmentRepository,
     InfluxConfigsRepository,
     InfluxWriteQueueRepository,
     SensorsRepository,
@@ -19,6 +21,7 @@ import { UsersRepository } from "./repositories/users.repository.js";
   ],
   exports: [
     ControllersRepository,
+    EquipmentRepository,
     InfluxConfigsRepository,
     InfluxWriteQueueRepository,
     SensorsRepository,
