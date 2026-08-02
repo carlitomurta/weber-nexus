@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PollingModule } from '../polling/polling.module';
+import { PollingModule } from '../../polling/polling.module';
 import { DiagnosticsController } from './diagnostics.controller';
 
 @Module({
