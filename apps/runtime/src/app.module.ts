@@ -3,9 +3,9 @@ import { RepositoryModule } from '@weber-nexus/repository';
 import { AuthModule } from './auth/auth.module';
 import { RuntimeConfigModule } from './config/runtime-config.module';
 import { ControllersModule } from './controllers/controllers.module';
-import { DiagnosticsModule } from './controllers/diagnostics/diagnostics.module';
+import { DiagnosticsModule } from './diagnostics/diagnostics.module';
 import { InfluxdbModule } from './influxdb/influxdb.module';
-import { RuntimeControlModule } from './controllers/runtime-control/runtime-control.module';
+import { RuntimeControlModule } from './runtime-control/runtime-control.module';
 
 @Module({
   imports: [

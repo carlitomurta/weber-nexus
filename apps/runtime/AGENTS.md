@@ -38,10 +38,10 @@ be closed.
 - `AuthModule` owns login and default admin bootstrap.
 - `DiagnosticsModule` exposes runtime diagnostic snapshots.
 
-Keep module imports aligned with actual folders. Modules under
-`src/controllers/*` must import shared runtime modules with the correct relative
-path, usually `../../polling/...` or `../../config/...`; do not reference
-non-existent top-level `src/diagnostics` or `src/runtime-control` folders.
+Keep module imports aligned with actual folders. Industrial controller and
+sensor features stay under `src/controllers/*`; runtime control and diagnostics
+stay as top-level feature modules under `src/runtime-control` and
+`src/diagnostics`.
 
 ## NestJS Patterns
 
@@ -119,6 +119,9 @@ non-existent top-level `src/diagnostics` or `src/runtime-control` folders.
 - InfluxDB can be disabled only through runtime environment configuration.
 - InfluxDB URLs, tokens, data paths, binary paths, and platform-specific paths
   must be resolved through `RuntimeEnvService`.
+- InfluxDB filesystem and process environment resolution belongs in
+  `InfluxdbRuntimePathsService`; process lifecycle belongs in
+  `InfluxdbRuntimeService`.
 - InfluxDB child process output must go through `@weber-nexus/logger`.
 - Telemetry writes use line protocol through `InfluxdbTelemetryRepository`.
 - Failed telemetry writes must be enqueued through
@@ -145,7 +148,10 @@ non-existent top-level `src/diagnostics` or `src/runtime-control` folders.
   controller.
 - `ControllerXmlConfigService` owns orchestration and Nest exceptions.
 - `controller-file-transfer.ts`, `wlconfig-xml.ts`, and `wlconfig-template.ts`
-  should stay protocol/parser/template focused and mostly framework-free.
+  are public facades and should stay protocol/parser/template focused.
+- Keep low-level TCP response readers, transport helpers, XML record helpers,
+  metadata helpers, sensor XML mapping, upload plans, and CRC helpers in their
+  dedicated files instead of expanding the facades again.
 - Use TCP port `8844` for the DXM Host API file transfer unless an explicit
   option overrides it.
 - Keep XML upload chunks at a maximum of 512 bytes.

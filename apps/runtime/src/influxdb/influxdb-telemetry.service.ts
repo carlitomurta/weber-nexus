@@ -100,7 +100,7 @@ export class InfluxdbTelemetryService
     }
 
     this.logger.info(
-      `Querying InfluxDB readings range=${range} controllerId=${controllerId ?? 'all'} batches=${batches.length} format=jsonl`,
+      `Consultando leituras do InfluxDB intervalo=${range} controlador=${controllerId ?? 'todos'} lotes=${batches.length} formato=jsonl`,
     );
 
     const readings: InfluxSensorReading[] = [];

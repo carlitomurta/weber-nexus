@@ -196,7 +196,7 @@ export class PollingRuntimeService
     }));
 
     this.logger.info(
-      `[COLETADO]: ${result.polledAt.toLocaleTimeString()}`,
+      `[COLETADO]: ${result.polledAt.toISOString()}`,
       readings.map((r) =>
         r.registers
           .map(

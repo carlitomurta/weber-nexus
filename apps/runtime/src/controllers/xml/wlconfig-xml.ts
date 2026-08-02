@@ -1,12 +1,36 @@
 /* eslint-disable no-control-regex */
 import type { NewSensor, Sensor } from '@weber-nexus/repository';
 import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser';
-import { createHash, randomUUID } from 'node:crypto';
-import { DEFAULT_WLCONFIG_TEMPLATE_XML } from './wlconfig-template';
+import { createHash } from 'node:crypto';
+import {
+  applyFileInfoMetadata,
+  controllerModelFromWlConfigDocument,
+  defaultWlConfigTemplateXml,
+  formatWlConfigTimestamp,
+  isSyntheticFileInfo,
+  readFileInfo,
+} from './wlconfig-xml-metadata';
+import { isWlConfigDocument } from './wlconfig-xml-record';
+import {
+  assertSingleStatusRegisterPerNode,
+  buildLocalRegistersAndRules,
+  sensorsFromWlConfigDocument,
+} from './wlconfig-xml-sensors';
+import {
+  ATTRIBUTE_PREFIX,
+  WlConfigXmlError,
+  type ParsedWlConfig,
+  type WlConfigBuildOptions,
+  type WlConfigDocument,
+} from './wlconfig-xml.types';
 
-const ATTRIBUTE_PREFIX = '@_';
-const WLCONFIG_FILENAME = 'WLConfig.xml';
-const ZERO_GUID = '00000000-0000-0000-0000-000000000000';
+export {
+  WlConfigXmlError,
+  type ParsedWlConfig,
+  type WlConfigBuildOptions,
+  type WlConfigDocument,
+};
+export { formatWlConfigTimestamp } from './wlconfig-xml-metadata';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -22,32 +46,6 @@ const builder = new XMLBuilder({
   format: true,
   suppressEmptyNode: true,
 });
-
-export type WlConfigDocument = {
-  configuration: Record<string, unknown>;
-  [key: string]: unknown;
-};
-
-export type ParsedWlConfig = {
-  readonly xml: string;
-  readonly checksum: string;
-  readonly document: WlConfigDocument;
-  readonly controllerModel?: string;
-  readonly sensors: Omit<NewSensor, 'controllerId'>[];
-};
-
-export type WlConfigBuildOptions = {
-  readonly controllerModel?: string;
-  readonly guid?: string;
-  readonly now?: Date;
-};
-
-export class WlConfigXmlError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = 'WlConfigXmlError';
-  }
-}
 
 export function cleanWlConfigXml(raw: string): string {
   let cleaned = raw
@@ -156,17 +154,6 @@ export function hasReusableWlConfigFileInfo(
   }
 }
 
-export function formatWlConfigTimestamp(date: Date): string {
-  const day = padDatePart(date.getUTCDate());
-  const month = padDatePart(date.getUTCMonth() + 1);
-  const year = date.getUTCFullYear();
-  const hour = padDatePart(date.getUTCHours());
-  const minute = padDatePart(date.getUTCMinutes());
-  const second = padDatePart(date.getUTCSeconds());
-
-  return `${day}/${month}/${year} ${hour}:${minute}:${second}`;
-}
-
 function validateWlConfigXml(xml: string): void {
   const validation = XMLValidator.validate(xml, {
     allowBooleanAttributes: true,
@@ -191,419 +178,5 @@ function parseBaseWlConfigDocument(
     // Usa template seguro quando registros legados não possuem snapshot XML.
   }
 
-  return parseWlConfigXml(DEFAULT_WLCONFIG_TEMPLATE_XML).document;
-}
-
-function applyFileInfoMetadata(
-  document: WlConfigDocument,
-  options: WlConfigBuildOptions,
-): void {
-  const info = ensureFileInfo(document);
-  const controllerModel = options.controllerModel?.trim();
-  const currentGuid = readStringAttribute(info, 'guid');
-
-  if (controllerModel) {
-    info[`${ATTRIBUTE_PREFIX}device`] = controllerModel;
-  }
-
-  info[`${ATTRIBUTE_PREFIX}filename`] = WLCONFIG_FILENAME;
-
-  if (!currentGuid || currentGuid === ZERO_GUID) {
-    info[`${ATTRIBUTE_PREFIX}guid`] = options.guid ?? randomUUID();
-  }
-
-  info[`${ATTRIBUTE_PREFIX}timestamp`] = formatWlConfigTimestamp(
-    options.now ?? new Date(),
-  );
-}
-
-function ensureFileInfo(document: WlConfigDocument): Record<string, unknown> {
-  let fileInfo = asRecord(document.configuration.file_info);
-
-  if (fileInfo === undefined) {
-    fileInfo = {};
-    document.configuration.file_info = fileInfo;
-  }
-
-  let info = asRecord(fileInfo.info);
-
-  if (info === undefined) {
-    info = {};
-    fileInfo.info = info;
-  }
-
-  return info;
-}
-
-function readFileInfo(
-  document: WlConfigDocument,
-): Record<string, unknown> | undefined {
-  return asRecord(asRecord(document.configuration.file_info)?.info);
-}
-
-function isSyntheticFileInfo(info: Record<string, unknown>): boolean {
-  return (
-    readStringAttribute(info, 'guid') === ZERO_GUID ||
-    readStringAttribute(info, 'os') === 'Nexus' ||
-    readStringAttribute(info, 'osversion') === 'Nexus' ||
-    readStringAttribute(info, 'software') === 'Nexus'
-  );
-}
-
-function padDatePart(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-function sensorsFromWlConfigDocument(
-  document: WlConfigDocument,
-): Omit<NewSensor, 'controllerId'>[] {
-  const localRegisters = indexedLocalRegisters(document);
-  const rtuRead = asRecord(document.configuration.rtu_read);
-  const rules = asArray(rtuRead?.rule);
-
-  const sensors = rules
-    .map((rule): Omit<NewSensor, 'controllerId'> | undefined => {
-      const count = readPositiveIntegerAttribute(rule, 'count');
-      const localreg = readPositiveIntegerAttribute(rule, 'localreg');
-      const remreg = readPositiveIntegerAttribute(rule, 'remreg');
-      const name = readStringAttribute(rule, 'name') ?? `Sensor ${remreg}`;
-
-      if (
-        count === undefined ||
-        localreg === undefined ||
-        remreg === undefined
-      ) {
-        return undefined;
-      }
-
-      const registers = Array.from({ length: count }, (_, index) => {
-        const localRegister = localRegisters.get(localreg + index);
-        const unit = readStringAttribute(localRegister, 'units') ?? '';
-        const scaleType = readScaleType(localRegister);
-        const scaleFactor = readPositiveNumberAttribute(
-          localRegister,
-          'scale_using',
-        );
-
-        return {
-          name:
-            readStringAttribute(localRegister, 'name') ??
-            `${name} ${index + 1}`,
-          address: remreg + index,
-          localRegisterNumber: localreg + index,
-          scaleType,
-          scaleFactor: scaleType === undefined ? undefined : scaleFactor,
-          unit,
-          isHealthCheck: !unit && scaleType === undefined,
-        };
-      });
-
-      return {
-        nodeId: Math.floor((remreg - 1) / 16),
-        name,
-        description: null,
-        model: null,
-        location: null,
-        operationalStatus: 'active',
-        registers,
-        deletedAt: null,
-      };
-    })
-    .filter(
-      (sensor): sensor is Omit<NewSensor, 'controllerId'> =>
-        sensor !== undefined,
-    );
-
-  return mergeSensorsByName(sensors);
-}
-
-function mergeSensorsByName(
-  sensors: ReadonlyArray<Omit<NewSensor, 'controllerId'>>,
-): Omit<NewSensor, 'controllerId'>[] {
-  const sensorsByName = new Map<string, Omit<NewSensor, 'controllerId'>>();
-
-  for (const sensor of sensors) {
-    const existingSensor = sensorsByName.get(sensor.name);
-
-    if (!existingSensor) {
-      sensorsByName.set(sensor.name, {
-        ...sensor,
-        registers: [...sensor.registers],
-      });
-      continue;
-    }
-
-    sensorsByName.set(sensor.name, {
-      ...existingSensor,
-      registers: [...existingSensor.registers, ...sensor.registers].sort(
-        compareRegistersByAddress,
-      ),
-    });
-  }
-
-  return [...sensorsByName.values()];
-}
-
-function compareRegistersByAddress(
-  left: NewSensor['registers'][number],
-  right: NewSensor['registers'][number],
-): number {
-  return left.address - right.address;
-}
-
-function controllerModelFromWlConfigDocument(
-  document: WlConfigDocument,
-): string | undefined {
-  return (
-    readStringAttribute(readFileInfo(document), 'device')?.trim() || undefined
-  );
-}
-
-function assertSingleStatusRegisterPerNode(
-  sensors: ReadonlyArray<Pick<Sensor | NewSensor, 'nodeId' | 'registers'>>,
-): void {
-  const statusCountsByNodeId = new Map<number, number>();
-
-  for (const sensor of sensors) {
-    const statusCount = sensor.registers.filter(
-      (register) => register.isHealthCheck === true,
-    ).length;
-
-    if (statusCount === 0) continue;
-
-    const nextCount =
-      (statusCountsByNodeId.get(sensor.nodeId) ?? 0) + statusCount;
-
-    if (nextCount > 1) {
-      throw new WlConfigXmlError(
-        `Nó ${sensor.nodeId} deve ter apenas um registrador de status`,
-      );
-    }
-
-    statusCountsByNodeId.set(sensor.nodeId, nextCount);
-  }
-}
-
-function indexedLocalRegisters(
-  document: WlConfigDocument,
-): Map<number, Record<string, unknown>> {
-  const localRegs = asRecord(document.configuration.local_regs);
-  const registers = asArray(localRegs?.reg);
-  const indexed = new Map<number, Record<string, unknown>>();
-
-  for (const register of registers) {
-    const num = readPositiveIntegerAttribute(register, 'num');
-
-    if (num !== undefined) {
-      indexed.set(num, register);
-    }
-  }
-
-  return indexed;
-}
-
-function buildLocalRegistersAndRules(
-  sensors: ReadonlyArray<Sensor | NewSensor>,
-): {
-  localRegisters: Record<string, string>[];
-  rules: Record<string, string>[];
-} {
-  const localRegisters: Record<string, string>[] = [];
-  const rules: Record<string, string>[] = [];
-  const localRegisterBySensorRegister = new Map<string, number>();
-
-  const orderedSensors = [...sensors].sort((a, b) => {
-    if (a.nodeId !== b.nodeId) return a.nodeId - b.nodeId;
-    return a.name.localeCompare(b.name);
-  });
-
-  for (const sensor of orderedSensors) {
-    const orderedRegisters = [...sensor.registers].sort(
-      (a, b) => a.address - b.address,
-    );
-
-    for (const register of orderedRegisters) {
-      const num = localRegisters.length + 1;
-      localRegisterBySensorRegister.set(
-        sensorRegisterKey(sensor, register),
-        num,
-      );
-      localRegisters.push(toLocalRegisterXmlAttributes(register, num));
-    }
-
-    for (const group of contiguousRegisterGroups(orderedRegisters)) {
-      const firstRegister = group[0];
-      const localreg = localRegisterBySensorRegister.get(
-        sensorRegisterKey(sensor, firstRegister),
-      );
-
-      if (localreg === undefined) continue;
-
-      rules.push(
-        toRtuReadRuleXmlAttributes(
-          sensor.name,
-          firstRegister.address,
-          group.length,
-          localreg,
-        ),
-      );
-    }
-  }
-
-  return { localRegisters, rules };
-}
-
-function toLocalRegisterXmlAttributes(
-  register: Sensor['registers'][number],
-  num: number,
-): Record<string, string> {
-  const attributes: Record<string, string> = {
-    '@_cloudio': '1',
-    '@_iot': '1',
-    '@_lcd': '1',
-    '@_logfiles': '8',
-    '@_name': register.name,
-    '@_num': String(num),
-    '@_perms': '1',
-  };
-
-  if (!register.isHealthCheck && register.scaleType && register.scaleFactor) {
-    attributes['@_scale_type'] = register.scaleType;
-    attributes['@_scale_using'] = String(register.scaleFactor);
-  }
-
-  if (!register.isHealthCheck && register.unit?.trim()) {
-    attributes['@_units'] = register.unit.trim();
-  }
-
-  return attributes;
-}
-
-function toRtuReadRuleXmlAttributes(
-  name: string,
-  remreg: number,
-  count: number,
-  localreg: number,
-): Record<string, string> {
-  return {
-    '@_count': String(count),
-    '@_default': '0',
-    '@_localreg': String(localreg),
-    '@_mask': '0',
-    '@_maxfail': '0',
-    '@_name': name,
-    '@_offset': '0',
-    '@_poll': '1',
-    '@_remfmt': 'int',
-    '@_remreg': String(remreg),
-    '@_remtype': 'hold_reg',
-    '@_scale': '0',
-    '@_swapped': '0',
-    '@_unit': '1',
-  };
-}
-
-function contiguousRegisterGroups<T extends { address: number }>(
-  registers: ReadonlyArray<T>,
-): T[][] {
-  const groups: T[][] = [];
-
-  for (const register of registers) {
-    const lastGroup = groups.at(-1);
-    const lastRegister = lastGroup?.at(-1);
-
-    if (
-      lastGroup &&
-      lastRegister &&
-      register.address === lastRegister.address + 1
-    ) {
-      lastGroup.push(register);
-    } else {
-      groups.push([register]);
-    }
-  }
-
-  return groups;
-}
-
-function sensorRegisterKey(
-  sensor: Pick<Sensor | NewSensor, 'name' | 'nodeId'>,
-  register: Pick<Sensor['registers'][number], 'address' | 'name'>,
-): string {
-  return `${sensor.nodeId}:${sensor.name}:${register.address}:${register.name}`;
-}
-
-function readScaleType(
-  source: Record<string, unknown> | undefined,
-): 'multiply' | 'divide' | undefined {
-  const value = readStringAttribute(source, 'scale_type');
-
-  if (value === 'multiply' || value === 'divide') {
-    return value;
-  }
-
-  return undefined;
-}
-
-function readStringAttribute(
-  source: Record<string, unknown> | undefined,
-  name: string,
-): string | undefined {
-  const value = source?.[`${ATTRIBUTE_PREFIX}${name}`];
-
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim();
-  }
-
-  if (typeof value === 'number') {
-    return String(value);
-  }
-
-  return undefined;
-}
-
-function readPositiveIntegerAttribute(
-  source: Record<string, unknown> | undefined,
-  name: string,
-): number | undefined {
-  const value = Number(readStringAttribute(source, name));
-
-  if (Number.isInteger(value) && value > 0) {
-    return value;
-  }
-
-  return undefined;
-}
-
-function readPositiveNumberAttribute(
-  source: Record<string, unknown> | undefined,
-  name: string,
-): number | undefined {
-  const value = Number(readStringAttribute(source, name));
-
-  if (Number.isFinite(value) && value > 0) {
-    return value;
-  }
-
-  return undefined;
-}
-
-function asArray(value: unknown): Record<string, unknown>[] {
-  if (Array.isArray(value)) {
-    return value.filter(isRecord);
-  }
-
-  return isRecord(value) ? [value] : [];
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined;
-}
-
-function isWlConfigDocument(value: unknown): value is WlConfigDocument {
-  return isRecord(value) && isRecord(value.configuration);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return parseWlConfigXml(defaultWlConfigTemplateXml()).document;
 }

@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { RuntimeEnvService } from '../../config/runtime-env.service';
+import { RuntimeEnvService } from '../config/runtime-env.service';
 
 @Injectable()
 export class RuntimeControlService {
