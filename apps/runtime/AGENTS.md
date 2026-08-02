@@ -33,3 +33,4 @@ The runtime is responsible for background industrial execution.
 - Follow the SOLID principles and Clean Code.
 - Always use the nestjs-best-practices skill.
 - If a refactor is requested, always keep the functionality working.
+- Files cannot be more than 400 lines of code, only if the context needs more lines, follow Single Responsability Principle as priority.
