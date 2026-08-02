@@ -4756,6 +4756,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@weber-nexus/machine-learning@workspace:packages/machine-learning":
+  version: 0.0.0-use.local
+  resolution: "@weber-nexus/machine-learning@workspace:packages/machine-learning"
+  dependencies:
+    "@types/node": "npm:^25.9.1"
+    typescript: "npm:^6.0.3"
+  languageName: unknown
+  linkType: soft
+
 "@weber-nexus/modbus@workspace:*, @weber-nexus/modbus@workspace:packages/modbus":
   version: 0.0.0-use.local
   resolution: "@weber-nexus/modbus@workspace:packages/modbus"
