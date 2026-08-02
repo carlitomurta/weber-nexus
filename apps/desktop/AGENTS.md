@@ -501,6 +501,12 @@ describe("MyComponent", () => {
 
 ### E2E Tests (Playwright)
 
+Run `yarn test:playwright` whenever a desktop feature is created or modified.
+Keep Playwright tests rational and feature-oriented: prefer full user flows
+through Electron and Runtime over mocked component-only paths. Cover real
+screens such as dashboard, controller CRUD, sensor CRUD, and future
+machine-learning result views backed by test telemetry.
+
 ```ts
 // tests/mocked/feature/my-feature.spec.ts
 import { test, expect } from "@playwright/test";

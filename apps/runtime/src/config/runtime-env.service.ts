@@ -33,6 +33,13 @@ export class RuntimeEnvService {
     return process.env.NODE_ENV !== 'production';
   }
 
+  isControllerXmlHardwareSyncDisabled(): boolean {
+    return (
+      process.env.NODE_ENV === 'test' &&
+      process.env.NEXUS_SKIP_CONTROLLER_XML_SYNC === '1'
+    );
+  }
+
   influxdbUrl(): string {
     return process.env.NEXUS_INFLUXDB_URL ?? DEFAULT_INFLUXDB_URL;
   }

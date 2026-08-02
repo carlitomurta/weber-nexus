@@ -8,6 +8,9 @@
     "build": {
       "dependsOn": ["^build"],
       "env": ["NEXUS_BUILD_CHANNEL"]
+    },
+    "test:playwright": {
+      "cache": false
     }
   }
 }

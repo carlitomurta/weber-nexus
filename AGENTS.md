@@ -132,6 +132,12 @@ yarn build
 yarn test
 ```
 
+### Playwright
+
+- Run `yarn test:playwright` whenever a feature is created or modified.
+- Playwright tests must exercise real user features across Electron and Runtime, such as dashboard, controller CRUD, sensor CRUD, and future ML-backed telemetry views.
+- Use isolated Playwright SQLite and InfluxDB data stores. Never point Playwright tests at developer or production databases.
+
 ### Lint
 
 ```bash

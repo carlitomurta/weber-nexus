@@ -30,7 +30,10 @@ export {
   type WlConfigBuildOptions,
   type WlConfigDocument,
 };
-export { formatWlConfigTimestamp } from './wlconfig-xml-metadata';
+export {
+  defaultWlConfigTemplateXml,
+  formatWlConfigTimestamp,
+} from './wlconfig-xml-metadata';
 
 const parser = new XMLParser({
   ignoreAttributes: false,

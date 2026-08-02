@@ -32,3 +32,8 @@ db
 
 # AI Tools temp files
 .playwright-mcp
+
+# Playwright runtime data and reports
+.playwright/
+playwright-report/
+test-results/

@@ -17,6 +17,8 @@
     "build": "yarn build:dev",
     "build:prod": "node scripts/build-system-channel.mjs production",
     "build:dev": "node scripts/build-system-channel.mjs development",
+    "test:playwright": "node tests/playwright/scripts/build-desktop.mjs && playwright test -c tests/playwright/playwright.config.ts",
+    "test:playwright:ui": "node tests/playwright/scripts/build-desktop.mjs && playwright test -c tests/playwright/playwright.config.ts --ui",
     "runtime:stop": "yarn workspace @weber-nexus/runtime stop",
     "version:set": "node scripts/set-version.mjs",
     "version:check": "node scripts/set-version.mjs --check"
@@ -31,6 +33,7 @@
     "resources/*"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@types/node": "^25.9.2",
     "turbo": "^2.9.16",
     "typescript": "^6.0.3"

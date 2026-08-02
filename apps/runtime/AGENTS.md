@@ -211,6 +211,10 @@ stay as top-level feature modules under `src/runtime-control` and
 - Test lifecycle services for startup, shutdown, timer cleanup, retry, and
   failure behavior.
 - Keep E2E tests under `apps/runtime/test`.
+- Run `yarn test:playwright` whenever a runtime-facing feature is created or
+  modified. These tests must use isolated SQLite and InfluxDB stores and cover
+  real Electron + Runtime flows such as dashboard telemetry, controller CRUD,
+  sensor CRUD, and future ML-backed readings.
 - Before changing architecture or imports, run runtime build or targeted tests.
 - Prefer focused tests for changed behavior; broaden tests when touching shared
   modules, polling, Influx queueing, or XML file transfer.

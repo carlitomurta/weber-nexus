@@ -22,10 +22,12 @@ import {
 import {
   buildWlConfigXml,
   cleanWlConfigXml,
+  defaultWlConfigTemplateXml,
   hasReusableWlConfigFileInfo,
   parseWlConfigXml,
   type ParsedWlConfig,
 } from './wlconfig-xml';
+import { RuntimeEnvService } from '../../config/runtime-env.service';
 
 export type ControllerXmlSyncResult = {
   readonly status: 'synced' | 'unchanged';
@@ -46,9 +48,20 @@ export class ControllerXmlConfigService {
   constructor(
     private readonly controllersRepository: ControllersRepository,
     private readonly sensorsRepository: SensorsRepository,
+    private readonly runtimeEnv: RuntimeEnvService,
   ) {}
 
   async downloadControllerConfig(ipAddress: string): Promise<ParsedWlConfig> {
+    if (this.runtimeEnv.isControllerXmlHardwareSyncDisabled()) {
+      const parsed = parseWlConfigXml(defaultWlConfigTemplateXml());
+
+      this.logger.warn(
+        `Download de WLConfig.xml ignorado em ambiente de teste para ${ipAddress}.`,
+      );
+
+      return parsed;
+    }
+
     try {
       const rawXml = await downloadWlConfigXml({ host: ipAddress });
       const cleanedXml = cleanWlConfigXml(rawXml);
@@ -115,6 +128,18 @@ export class ControllerXmlConfigService {
     this.logger.info(
       `Enviando WLConfig.xml para ${controller.ipAddress}: checksum=${xmlConfig.checksum} fileSizeBytes=${uploadPlan.fileSizeBytes} totalChunkBytes=${uploadPlan.totalChunkBytes} chunkCount=${uploadPlan.chunkCount} chunkSizes=${uploadPlan.chunkSizes.join(',')}`,
     );
+
+    if (this.runtimeEnv.isControllerXmlHardwareSyncDisabled()) {
+      this.logger.warn(
+        `Envio de WLConfig.xml ignorado em ambiente de teste para ${controller.ipAddress}.`,
+      );
+
+      return {
+        xmlConfig: xmlConfig.xml,
+        xmlConfigChecksum: xmlConfig.checksum,
+        xmlLastSyncedAt: new Date(),
+      };
+    }
 
     try {
       await uploadWlConfigXml(xmlConfig.xml, { host: controller.ipAddress });
