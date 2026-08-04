@@ -57,6 +57,16 @@ jest.mock('@weber-nexus/repository', () => {
     }
   }
 
+  class MigrationHistoryRepository {
+    findByKindAndVersion(): Promise<undefined> {
+      return Promise.resolve(undefined);
+    }
+
+    recordResult(): Promise<void> {
+      return Promise.resolve();
+    }
+  }
+
   class UsersRepository {
     ensureDefaultAdmin(): Promise<void> {
       return Promise.resolve();
@@ -73,6 +83,7 @@ jest.mock('@weber-nexus/repository', () => {
       SensorsRepository,
       InfluxConfigsRepository,
       InfluxWriteQueueRepository,
+      MigrationHistoryRepository,
       UsersRepository,
     ],
     exports: [
@@ -81,6 +92,7 @@ jest.mock('@weber-nexus/repository', () => {
       SensorsRepository,
       InfluxConfigsRepository,
       InfluxWriteQueueRepository,
+      MigrationHistoryRepository,
       UsersRepository,
     ],
   })(RepositoryModule);
@@ -91,6 +103,7 @@ jest.mock('@weber-nexus/repository', () => {
     EquipmentRepository,
     InfluxConfigsRepository,
     InfluxWriteQueueRepository,
+    MigrationHistoryRepository,
     RepositoryModule,
     SensorsRepository,
     UsersRepository,

@@ -25,6 +25,11 @@ export {
   type InfluxWriteQueueItem,
 } from "./repositories/influx-write-queue.repository.js";
 export {
+  MigrationHistoryRepository,
+  type MigrationHistoryRecord,
+  type MigrationHistoryStatus,
+} from "./repositories/migration-history.repository.js";
+export {
   SensorsRepository,
   type NewSensor,
   type Sensor,

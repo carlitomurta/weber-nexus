@@ -25,7 +25,8 @@
     "build": "tsc",
     "dev": "tsc",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "migrate": "drizzle-kit migrate",
+    "test": "yarn build && node --test \"dist/__tests__/*.test.js\""
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",

@@ -31,6 +31,7 @@ describe('PollingRuntimeService status updates', () => {
     updateOperationalStatusByControllerId: jest.Mock;
   };
   let telemetryService: { writePollingResult: jest.Mock };
+  let influxdbSchemaMigrationService: { ensureApplied: jest.Mock };
   let runtimeEnv: { isRuntimeMaintenanceEnabled: jest.Mock };
   let service: PollingRuntimeService;
 
@@ -49,6 +50,9 @@ describe('PollingRuntimeService status updates', () => {
     telemetryService = {
       writePollingResult: jest.fn().mockResolvedValue(undefined),
     };
+    influxdbSchemaMigrationService = {
+      ensureApplied: jest.fn().mockResolvedValue(undefined),
+    };
     runtimeEnv = {
       isRuntimeMaintenanceEnabled: jest.fn().mockReturnValue(false),
     };
@@ -56,6 +60,7 @@ describe('PollingRuntimeService status updates', () => {
       controllersRepository as never,
       sensorsRepository as never,
       telemetryService as never,
+      influxdbSchemaMigrationService as never,
       runtimeEnv as never,
     );
   });

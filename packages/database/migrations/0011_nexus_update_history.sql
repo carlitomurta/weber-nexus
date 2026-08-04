@@ -1,4 +1,4 @@
-CREATE TABLE `update_history` (
+CREATE TABLE IF NOT EXISTS `update_history` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`from_version` text NOT NULL,
 	`to_version` text NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE `update_history` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000)
 );
 --> statement-breakpoint
-CREATE TABLE `migration_history` (
+CREATE TABLE IF NOT EXISTS `migration_history` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`kind` text NOT NULL,
 	`version` text NOT NULL,
@@ -26,4 +26,4 @@ CREATE TABLE `migration_history` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000)
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `migration_history_kind_version_idx` ON `migration_history` (`kind`,`version`);
+CREATE UNIQUE INDEX IF NOT EXISTS `migration_history_kind_version_idx` ON `migration_history` (`kind`,`version`);

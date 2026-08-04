@@ -5,7 +5,6 @@ import {
   drizzle,
   type BetterSQLite3Database,
 } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -28,14 +27,11 @@ export function createDatabase(dbPath: string): Database {
   sqlite.pragma("foreign_keys = ON");
 
   database = drizzle(sqlite, { schema });
-  migrate(database, {
-    migrationsFolder: migrationsFolder(),
-  });
 
   return database;
 }
 
-function migrationsFolder(): string {
+export function defaultMigrationsFolder(): string {
   return (
     process.env.NEXUS_DATABASE_MIGRATIONS_DIR ??
     path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations")

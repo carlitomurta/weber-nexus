@@ -26,10 +26,10 @@ Spec: `specs/auto-update-v1.md`
 - [ ] Implementar parada do Runtime por supervisor local em produção.
 - [x] Implementar modo manutenção no Runtime.
 - [x] Criar tabelas SQLite de histórico de update e migrations.
-- [ ] Implementar backup SQLite antes de migrations destrutivas.
-- [ ] Implementar executor de migrations SQLite no startup do Runtime.
-- [ ] Implementar executor de rotinas InfluxDB idempotentes.
-- [ ] Bloquear polling até migrations concluírem.
+- [x] Implementar backup SQLite antes de migrations destrutivas.
+- [x] Implementar executor de migrations SQLite no startup do Runtime.
+- [x] Implementar executor de rotinas InfluxDB idempotentes.
+- [x] Bloquear polling até migrations concluírem.
 - [x] Implementar health check final pós-update.
 - [ ] Registrar sucesso e falhas com timestamps UTC.
 - [x] Configurar `electron-builder` com provider GitHub.
@@ -44,8 +44,8 @@ Spec: `specs/auto-update-v1.md`
 - [x] Validar que recursos InfluxDB foram empacotados.
 - [x] Criar testes unitários de manifesto, versão, canal e rollout.
 - [x] Criar testes unitários de validação de hash.
-- [ ] Criar testes unitários de migrations SQLite idempotentes.
-- [ ] Criar testes unitários de rotinas InfluxDB idempotentes.
+- [x] Criar testes unitários de migrations SQLite idempotentes.
+- [x] Criar testes unitários de rotinas InfluxDB idempotentes.
 - [ ] Criar testes de integração do Runtime em modo manutenção.
 - [ ] Criar testes de integração para falha de migration.
 - [ ] Criar teste Electron/Playwright para status de update.

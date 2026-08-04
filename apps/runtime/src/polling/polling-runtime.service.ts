@@ -20,6 +20,7 @@ import {
   toPollingSensors,
 } from './polling-controller.mapper';
 import { RuntimeEnvService } from '../config/runtime-env.service';
+import { InfluxdbSchemaMigrationService } from '../influxdb/influxdb-schema-migration.service';
 
 export type RawHoldingRegisterSnapshot = {
   controllerId: number;
@@ -69,6 +70,7 @@ export class PollingRuntimeService
     private readonly controllersRepository: ControllersRepository,
     private readonly sensorsRepository: SensorsRepository,
     private readonly influxdbTelemetryService: InfluxdbTelemetryService,
+    private readonly influxdbSchemaMigrationService: InfluxdbSchemaMigrationService,
     private readonly runtimeEnv: RuntimeEnvService,
   ) {}
 
@@ -80,6 +82,8 @@ export class PollingRuntimeService
       );
       return;
     }
+
+    await this.influxdbSchemaMigrationService.ensureApplied();
 
     const controllers = await this.controllersRepository.findAll();
 
