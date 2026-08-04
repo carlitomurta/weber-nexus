@@ -6,6 +6,12 @@ import {
   type AppBuildInfo,
   type DesktopDiagnostic,
 } from "../src/types/diagnostics.type";
+import {
+  updateInstallResultSchema,
+  updateStatusSchema,
+  type UpdateInstallResult,
+  type UpdateStatus,
+} from "../src/types/update.type";
 
 const { contextBridge, ipcRenderer } = electron;
 
@@ -36,6 +42,28 @@ contextBridge.exposeInMainWorld("electron", {
 
       return () => {
         ipcRenderer.off("app:diagnostic", handler);
+      };
+    },
+  },
+
+  updates: {
+    getStatus: async (): Promise<UpdateStatus> =>
+      updateStatusSchema.parse(await ipcRenderer.invoke("updates:get-status")),
+    install: async (): Promise<UpdateInstallResult> =>
+      updateInstallResultSchema.parse(await ipcRenderer.invoke("updates:install")),
+    onStatus: (callback: (status: UpdateStatus) => void) => {
+      const handler = (_event: IpcRendererEvent, status: unknown) => {
+        const parsedStatus = updateStatusSchema.safeParse(status);
+
+        if (parsedStatus.success) {
+          callback(parsedStatus.data);
+        }
+      };
+
+      ipcRenderer.on("updates:status", handler);
+
+      return () => {
+        ipcRenderer.off("updates:status", handler);
       };
     },
   },

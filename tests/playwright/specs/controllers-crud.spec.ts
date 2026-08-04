@@ -6,7 +6,7 @@ test("CRUD de controladores pela tela de configurações", async ({
 }) => {
   await page.getByRole("link", { name: "Configurações" }).click();
   await expect(
-    page.getByRole("heading", { name: "Cadastro de Controladores" }),
+    page.getByRole("heading", { name: "Configurações" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Novo controlador" }).click();

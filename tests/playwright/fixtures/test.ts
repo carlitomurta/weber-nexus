@@ -11,12 +11,14 @@ import {
 
 type Fixtures = {
   electron: ElectronHarness;
+  electronEnv: Partial<NodeJS.ProcessEnv>;
   page: ElectronHarness["page"];
   runtime: RuntimeHarness;
   seed: PlaywrightSeed;
 };
 
 export const test = base.extend<Fixtures>({
+  electronEnv: [{}, { option: true }],
   runtime: [
     async ({}, use) => {
       const runtime = await startRuntimeHarness();
@@ -35,8 +37,8 @@ export const test = base.extend<Fixtures>({
     },
     { scope: "worker" },
   ],
-  electron: async ({ runtime: _runtime }, use) => {
-    const electronApp = await launchElectronApp();
+  electron: async ({ runtime: _runtime, electronEnv }, use) => {
+    const electronApp = await launchElectronApp(electronEnv);
 
     try {
       await use(electronApp);

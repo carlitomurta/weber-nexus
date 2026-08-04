@@ -113,10 +113,13 @@ jest.mock('@weber-nexus/repository', () => {
 describe('Runtime API (e2e)', () => {
   let app: INestApplication<App>;
   let originalDisableInfluxdb: string | undefined;
+  let originalUpdateAgentToken: string | undefined;
 
   beforeEach(async () => {
     originalDisableInfluxdb = process.env.NEXUS_DISABLE_INFLUXDB;
+    originalUpdateAgentToken = process.env.NEXUS_UPDATE_AGENT_TOKEN;
     process.env.NEXUS_DISABLE_INFLUXDB = '1';
+    process.env.NEXUS_UPDATE_AGENT_TOKEN = 'agent-token';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -133,6 +136,12 @@ describe('Runtime API (e2e)', () => {
       process.env.NEXUS_DISABLE_INFLUXDB = originalDisableInfluxdb;
     }
 
+    if (originalUpdateAgentToken === undefined) {
+      delete process.env.NEXUS_UPDATE_AGENT_TOKEN;
+    } else {
+      process.env.NEXUS_UPDATE_AGENT_TOKEN = originalUpdateAgentToken;
+    }
+
     await app?.close();
   });
 
@@ -144,5 +153,32 @@ describe('Runtime API (e2e)', () => {
     expect(response.body).toMatchObject({ status: 'ready' });
     expect(response.body.timestamp).toEqual(expect.any(String));
     expect(Number.isNaN(Date.parse(response.body.timestamp))).toBe(false);
+  });
+
+  it('enters maintenance mode through local update channel', async () => {
+    const maintenance = await request(app.getHttpServer())
+      .post('/runtime/update/maintenance')
+      .set('x-nexus-agent-token', 'agent-token')
+      .expect(201);
+
+    expect(maintenance.body).toMatchObject({
+      status: 'maintenance',
+      message: 'Runtime em modo manutenção.',
+    });
+    expect(Number.isNaN(Date.parse(maintenance.body.entered_at_utc))).toBe(
+      false,
+    );
+
+    const status = await request(app.getHttpServer())
+      .get('/runtime/update/status')
+      .set('x-nexus-agent-token', 'agent-token')
+      .expect(200);
+
+    expect(status.body).toMatchObject({
+      status: 'maintenance',
+      polling: {
+        pausedForUpdate: true,
+      },
+    });
   });
 });

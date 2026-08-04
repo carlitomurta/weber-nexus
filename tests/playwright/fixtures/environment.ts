@@ -70,6 +70,10 @@ export function buildElectronEnv(): NodeJS.ProcessEnv {
     NEXUS_RUNTIME_API_URL: runtimeApiUrl,
     NEXUS_DISABLE_RUNTIME_SPAWN: "1",
     NEXUS_BUILD_CHANNEL: "development",
+    NEXUS_DESKTOP_MOCK_UPDATE_AVAILABLE:
+      process.env.NEXUS_PLAYWRIGHT_MOCK_UPDATE_AVAILABLE,
+    NEXUS_DESKTOP_MOCK_UPDATE_VERSION:
+      process.env.NEXUS_PLAYWRIGHT_MOCK_UPDATE_VERSION,
   };
 
   delete env.ELECTRON_RUN_AS_NODE;

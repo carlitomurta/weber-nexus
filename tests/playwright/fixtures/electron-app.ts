@@ -12,22 +12,25 @@ export type ElectronHarness = {
   page: Page;
 };
 
-export async function launchElectronApp(): Promise<ElectronHarness> {
+export async function launchElectronApp(
+  envOverrides: Partial<NodeJS.ProcessEnv> = {},
+): Promise<ElectronHarness> {
   const app = await electron
     .launch({
       executablePath: electronExecutablePath(),
       args: ["."],
       cwd: desktopRoot,
-      env: buildElectronEnv(),
+      env: {
+        ...buildElectronEnv(),
+        ...envOverrides,
+      },
       timeout: 45_000,
     })
     .catch((error: unknown) => {
       const message =
         error instanceof Error ? (error.stack ?? error.message) : String(error);
 
-      throw new Error(
-        `Falha ao iniciar Electron: ${message}`,
-      );
+      throw new Error(`Falha ao iniciar Electron: ${message}`);
     });
 
   await app.context().addInitScript(() => {

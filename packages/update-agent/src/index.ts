@@ -1,4 +1,5 @@
 export * from "./agent-state.js";
+export * from "./admin-server.js";
 export * from "./channel.js";
 export * from "./connectivity.js";
 export * from "./github.js";
@@ -7,4 +8,6 @@ export * from "./manifest.js";
 export * from "./rollout.js";
 export * from "./selection.js";
 export * from "./semver.js";
+export * from "./supervisor.js";
+export * from "./system-notification.js";
 export * from "./types.js";

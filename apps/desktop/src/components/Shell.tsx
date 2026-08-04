@@ -1,4 +1,5 @@
 import { AppLogo } from "@/components/shared/AppLogo";
+import { UpdateStatusPanel } from "@/components/UpdateStatusPanel";
 import { currentUser } from "@/lib/auth";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Activity, Boxes, Cog, Cpu, LayoutDashboard, LogOut } from "lucide-react";
@@ -44,6 +45,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="p-3 border-t border-border">
+          <div className="mb-2">
+            <UpdateStatusPanel />
+          </div>
           <div className="px-3 py-2 mb-2 rounded bg-muted/40">
             <div className="flex items-center gap-2 text-[11px]">
               <span className="size-1.5 rounded-full bg-success animate-pulse" />

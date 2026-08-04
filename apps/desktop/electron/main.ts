@@ -50,6 +50,36 @@ type RuntimeProcessConfig = {
   stdio: "ignore";
 };
 
+type UpdateStatus = {
+  status:
+    | "idle"
+    | "checking"
+    | "update_available"
+    | "downloading"
+    | "downloaded"
+    | "ready_to_install"
+    | "installing"
+    | "healthy"
+    | "maintenance"
+    | "failed";
+  current_version: string;
+  available_version: string | null;
+  channel: "internal" | "beta" | "stable";
+  message: string;
+  requires_action: boolean;
+  checked_at_utc: string;
+};
+
+type UpdateInstallResult = {
+  accepted: boolean;
+  message: string;
+};
+
+const UPDATE_POLL_INTERVAL_MS = 60_000;
+let updatePollTimer: NodeJS.Timeout | undefined;
+let lastUpdateStatus: UpdateStatus | undefined;
+let lastNotifiedUpdateVersion: string | null = null;
+
 function registerIpcHandlers() {
   if (ipcHandlersRegistered) {
     return;
@@ -67,6 +97,16 @@ function registerIpcHandlers() {
       : diagnosticHistory.filter((entry) => entry.audience === "operator");
   });
 
+  ipcMain.handle("updates:get-status", async () => {
+    const status = await readUpdateStatus();
+    publishUpdateStatus(status);
+    return status;
+  });
+
+  ipcMain.handle("updates:install", async () => {
+    return requestUpdateInstall();
+  });
+
   ipcMain.on("update-window-title", (event, title) => {
     if (typeof title !== "string") return;
 
@@ -78,6 +118,16 @@ function registerIpcHandlers() {
   });
 
   ipcHandlersRegistered = true;
+}
+
+function startUpdatePolling(): void {
+  if (updatePollTimer) return;
+
+  void readUpdateStatus().then(publishUpdateStatus);
+  updatePollTimer = setInterval(() => {
+    void readUpdateStatus().then(publishUpdateStatus);
+  }, UPDATE_POLL_INTERVAL_MS);
+  updatePollTimer.unref();
 }
 
 async function ensureRuntimeProcess() {
@@ -282,6 +332,14 @@ function createWindow() {
     windows.delete(mainWindow);
   });
 
+  if (lastUpdateStatus) {
+    mainWindow.webContents.once("did-finish-load", () => {
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("updates:status", lastUpdateStatus);
+      }
+    });
+  }
+
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL).catch((error) => {
       publishDeveloperDiagnostic({
@@ -341,6 +399,14 @@ app.on("activate", () => {
 app.whenReady().then(async () => {
   await ensureRuntimeProcess();
   createWindow();
+  startUpdatePolling();
+});
+
+app.on("before-quit", () => {
+  if (!updatePollTimer) return;
+
+  clearInterval(updatePollTimer);
+  updatePollTimer = undefined;
 });
 
 function appBuildInfo(): AppBuildInfo {
@@ -435,6 +501,234 @@ function publishDiagnostic(input: DesktopDiagnosticInput): void {
       win.webContents.send("app:diagnostic", diagnostic);
     }
   }
+}
+
+async function readUpdateStatus(): Promise<UpdateStatus> {
+  const simulated = simulatedUpdateStatus();
+  if (simulated) {
+    return simulated;
+  }
+
+  const agentUrl = process.env.NEXUS_UPDATE_AGENT_URL;
+  if (agentUrl) {
+    try {
+      const agentStatus = await fetchJson<Partial<UpdateStatus>>(
+        new URL("/update/status", normalizeUrl(agentUrl)).toString(),
+        process.env.NEXUS_UPDATE_AGENT_TOKEN,
+      );
+
+      return normalizeUpdateStatus(agentStatus, "Status do Agent recebido.");
+    } catch {
+      return {
+        status: "idle",
+        current_version: app.getVersion(),
+        available_version: null,
+        channel: configuredUpdateChannel(),
+        message: "Nexus Update Agent não está disponível.",
+        requires_action: false,
+        checked_at_utc: new Date().toISOString(),
+      };
+    }
+  }
+
+  try {
+    const runtimeUrl =
+      process.env.VITE_RUNTIME_API_URL ??
+      process.env.NEXUS_RUNTIME_API_URL ??
+      "http://127.0.0.1:3000";
+    const runtimeStatus = await fetchJson<{ status?: string }>(
+      new URL("/runtime/update/status", normalizeUrl(runtimeUrl)).toString(),
+      process.env.NEXUS_UPDATE_AGENT_TOKEN,
+    );
+
+    return {
+      status: runtimeStatus.status === "maintenance" ? "maintenance" : "idle",
+      current_version: app.getVersion(),
+      available_version: null,
+      channel: configuredUpdateChannel(),
+      message: "Nenhuma atualização disponível.",
+      requires_action: false,
+      checked_at_utc: new Date().toISOString(),
+    };
+  } catch {
+    return {
+      status: "idle",
+      current_version: app.getVersion(),
+      available_version: null,
+      channel: configuredUpdateChannel(),
+      message: "Nexus Update Agent não está disponível.",
+      requires_action: false,
+      checked_at_utc: new Date().toISOString(),
+    };
+  }
+}
+
+async function requestUpdateInstall(): Promise<UpdateInstallResult> {
+  const agentUrl = process.env.NEXUS_UPDATE_AGENT_URL;
+  if (!agentUrl) {
+    return {
+      accepted: false,
+      message: "Nexus Update Agent não está configurado nesta instalação.",
+    };
+  }
+
+  try {
+    const result = await fetchJson<Partial<UpdateInstallResult>>(
+      new URL("/update/install", normalizeUrl(agentUrl)).toString(),
+      process.env.NEXUS_UPDATE_AGENT_TOKEN,
+      { method: "POST" },
+    );
+
+    return {
+      accepted: result.accepted === true,
+      message:
+        typeof result.message === "string"
+          ? result.message
+          : "Solicitação enviada ao Nexus Update Agent.",
+    };
+  } catch (error) {
+    return {
+      accepted: false,
+      message:
+        error instanceof Error
+          ? `Falha ao solicitar atualização: ${error.message}`
+          : "Falha ao solicitar atualização.",
+    };
+  }
+}
+
+function publishUpdateStatus(status: UpdateStatus): void {
+  lastUpdateStatus = status;
+
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send("updates:status", status);
+    }
+  }
+
+  if (
+    status.requires_action &&
+    status.available_version &&
+    lastNotifiedUpdateVersion !== status.available_version
+  ) {
+    lastNotifiedUpdateVersion = status.available_version;
+    showUpdateNotification(status);
+  }
+}
+
+function showUpdateNotification(status: UpdateStatus): void {
+  if (!electron.Notification.isSupported()) return;
+
+  new electron.Notification({
+    title: "Atualização do Nexus disponível",
+    body: status.message,
+    silent: false,
+  }).show();
+}
+
+async function fetchJson<TValue>(
+  url: string,
+  token?: string,
+  init: RequestInit = {},
+): Promise<TValue> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  const headers = new Headers(init.headers);
+
+  headers.set("Accept", "application/json");
+
+  if (token) {
+    headers.set("x-nexus-agent-token", token);
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as TValue;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeUpdateStatus(
+  input: Partial<UpdateStatus>,
+  fallbackMessage: string,
+): UpdateStatus {
+  return {
+    status: isUpdateStatus(input.status) ? input.status : "idle",
+    current_version:
+      typeof input.current_version === "string"
+        ? input.current_version
+        : app.getVersion(),
+    available_version:
+      typeof input.available_version === "string"
+        ? input.available_version
+        : null,
+    channel: isUpdateChannel(input.channel)
+      ? input.channel
+      : configuredUpdateChannel(),
+    message:
+      typeof input.message === "string" ? input.message : fallbackMessage,
+    requires_action: input.requires_action === true,
+    checked_at_utc:
+      typeof input.checked_at_utc === "string"
+        ? input.checked_at_utc
+        : new Date().toISOString(),
+  };
+}
+
+function simulatedUpdateStatus(): UpdateStatus | undefined {
+  if (process.env.NEXUS_DESKTOP_MOCK_UPDATE_AVAILABLE !== "1") {
+    return undefined;
+  }
+
+  return {
+    status: "update_available",
+    current_version: app.getVersion(),
+    available_version:
+      process.env.NEXUS_DESKTOP_MOCK_UPDATE_VERSION ?? "1.0.1",
+    channel: configuredUpdateChannel(),
+    message: "Atualização disponível para instalação.",
+    requires_action: true,
+    checked_at_utc: new Date().toISOString(),
+  };
+}
+
+function configuredUpdateChannel(): UpdateStatus["channel"] {
+  const channel = process.env.NEXUS_RELEASE_CHANNEL;
+
+  return isUpdateChannel(channel) ? channel : "stable";
+}
+
+function normalizeUrl(value: string): string {
+  return value.endsWith("/") ? value : `${value}/`;
+}
+
+function isUpdateStatus(value: unknown): value is UpdateStatus["status"] {
+  return (
+    value === "idle" ||
+    value === "checking" ||
+    value === "update_available" ||
+    value === "downloading" ||
+    value === "downloaded" ||
+    value === "ready_to_install" ||
+    value === "installing" ||
+    value === "healthy" ||
+    value === "maintenance" ||
+    value === "failed"
+  );
+}
+
+function isUpdateChannel(value: unknown): value is UpdateStatus["channel"] {
+  return value === "internal" || value === "beta" || value === "stable";
 }
 
 function diagnosticDetail(value: unknown): string {

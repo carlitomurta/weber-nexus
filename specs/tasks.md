@@ -16,14 +16,14 @@ Spec: `specs/auto-update-v1.md`
 - [x] Implementar consulta ao GitHub Releases privado.
 - [x] Implementar download de artefatos pelo Agent.
 - [x] Implementar validação SHA-256 dos artefatos.
-- [ ] Implementar canal administrativo local entre Agent, Desktop e Runtime.
-- [ ] Implementar eventos de update para Desktop aberto.
-- [ ] Implementar notificação do sistema para Desktop fechado.
+- [x] Implementar canal administrativo local entre Agent, Desktop e Runtime.
+- [x] Implementar eventos de update para Desktop aberto.
+- [x] Implementar notificação do sistema para Desktop fechado.
 - [x] Implementar preparação segura do Runtime para update.
 - [x] Pausar polling durante preparação de update.
 - [x] Fazer flush ou checkpoint das filas persistentes.
-- [ ] Remover dependência de `/runtime/stop` para produção.
-- [ ] Implementar parada do Runtime por supervisor local em produção.
+- [x] Remover dependência de `/runtime/stop` para produção.
+- [x] Implementar parada do Runtime por supervisor local em produção.
 - [x] Implementar modo manutenção no Runtime.
 - [x] Criar tabelas SQLite de histórico de update e migrations.
 - [x] Implementar backup SQLite antes de migrations destrutivas.
@@ -31,7 +31,7 @@ Spec: `specs/auto-update-v1.md`
 - [x] Implementar executor de rotinas InfluxDB idempotentes.
 - [x] Bloquear polling até migrations concluírem.
 - [x] Implementar health check final pós-update.
-- [ ] Registrar sucesso e falhas com timestamps UTC.
+- [x] Registrar sucesso e falhas com timestamps UTC.
 - [x] Configurar `electron-builder` com provider GitHub.
 - [x] Criar pipeline GitHub Actions por tag `vMAJOR.MINOR.PATCH`.
 - [x] Configurar build Windows.
@@ -46,7 +46,7 @@ Spec: `specs/auto-update-v1.md`
 - [x] Criar testes unitários de validação de hash.
 - [x] Criar testes unitários de migrations SQLite idempotentes.
 - [x] Criar testes unitários de rotinas InfluxDB idempotentes.
-- [ ] Criar testes de integração do Runtime em modo manutenção.
-- [ ] Criar testes de integração para falha de migration.
-- [ ] Criar teste Electron/Playwright para status de update.
+- [x] Criar testes de integração do Runtime em modo manutenção.
+- [x] Criar testes de integração para falha de migration.
+- [x] Criar teste Electron/Playwright para status de update.
 - [x] Documentar processo de release, promoção de canais e rollback.
