@@ -23,13 +23,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const user = currentUser();
 
   return (
-    <div className="min-h-screen flex">
-      <aside className="w-60 shrink-0 border-r border-border bg-card/60 backdrop-blur flex flex-col">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-card/60 backdrop-blur">
         <div className="border-b border-border px-5 py-5">
           <AppLogo />
         </div>
 
-        <nav className="p-3 flex-1 space-y-1">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {nav.map((item) => {
             const active =
               path === item.to ||
@@ -51,7 +51,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-border">
+        <div className="shrink-0 border-t border-border p-3">
           <div className="mb-2">
             <UpdateStatusPanel />
           </div>
@@ -76,8 +76,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border bg-background/70 backdrop-blur flex items-center justify-between px-6">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/70 px-6 backdrop-blur">
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
             <Activity className="size-3.5 text-warning" />
             <span>SEM REDE · última sincronização há 20 minutos</span>
@@ -87,7 +87,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span className="size-2 rounded-full bg-success" />
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
   );
