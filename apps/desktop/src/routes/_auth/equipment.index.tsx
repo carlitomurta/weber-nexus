@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageTitle } from "@/components/shared/PageTitle";
 import { Field, inputCls } from "@/features/settings/form-controls";
 import {
@@ -65,6 +66,8 @@ type InstallationDraft = {
   notes: string;
 };
 
+type DeleteEquipmentConfirmation = Pick<Equipment, "id" | "name">;
+
 const emptyEquipment: Equipment[] = [];
 const emptyEquipmentTypes: EquipmentType[] = [];
 const emptySensors: Sensor[] = [];
@@ -92,13 +95,16 @@ function EquipmentPage() {
   const [draft, setDraft] = useState<EquipmentDraft>(() =>
     emptyDraft(equipmentTypes[0]?.id ?? 0),
   );
-  const [installationDraft, setInstallationDraft] =
-    useState<InstallationDraft>({
+  const [installationDraft, setInstallationDraft] = useState<InstallationDraft>(
+    {
       sensorId: "",
       position: "",
       measurementAxis: "",
       notes: "",
-    });
+    },
+  );
+  const [deleteConfirm, setDeleteConfirm] =
+    useState<DeleteEquipmentConfirmation | null>(null);
 
   const createEquipment = useCreateEquipment();
   const updateEquipment = useUpdateEquipment();
@@ -111,9 +117,10 @@ function EquipmentPage() {
     equipment.find((item) => item.id === selectedId) ?? null;
   const selectedType =
     equipmentTypes.find((item) => item.id === draft.equipmentTypeId) ?? null;
-  const activeSensorIds = useMemo(() => activeInstalledSensorIds(equipment), [
-    equipment,
-  ]);
+  const activeSensorIds = useMemo(
+    () => activeInstalledSensorIds(equipment),
+    [equipment],
+  );
   const availableSensors = sensors.filter(
     (sensor) => !activeSensorIds.has(sensor.id),
   );
@@ -200,11 +207,9 @@ function EquipmentPage() {
   }
 
   function removeSelectedEquipment() {
-    if (!selectedEquipment) return;
+    if (!deleteConfirm) return;
 
-    if (!window.confirm(`Remover "${selectedEquipment.name}"?`)) return;
-
-    deleteEquipment.mutate(selectedEquipment.id, {
+    deleteEquipment.mutate(deleteConfirm.id, {
       onSuccess: () => {
         startCreate();
         toast.success("Equipamento removido.");
@@ -214,6 +219,7 @@ function EquipmentPage() {
           apiErrorMessage(error, "Não foi possível remover equipamento."),
         ),
     });
+    setDeleteConfirm(null);
   }
 
   function addSensorInstallation() {
@@ -325,7 +331,13 @@ function EquipmentPage() {
                 </div>
                 {!isCreating ? (
                   <button
-                    onClick={removeSelectedEquipment}
+                    onClick={() =>
+                      selectedEquipment &&
+                      setDeleteConfirm({
+                        id: selectedEquipment.id,
+                        name: selectedEquipment.name,
+                      })
+                    }
                     className="inline-flex h-8 items-center gap-1.5 rounded px-3 text-xs text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="size-3" /> Remover
@@ -339,7 +351,9 @@ function EquipmentPage() {
                     <select
                       className={inputCls}
                       value={draft.equipmentTypeId}
-                      onChange={(event) => changeType(Number(event.target.value))}
+                      onChange={(event) =>
+                        changeType(Number(event.target.value))
+                      }
                     >
                       {equipmentTypes.map((type) => (
                         <option key={type.id} value={type.id}>
@@ -509,6 +523,16 @@ function EquipmentPage() {
           </section>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Remover equipamento?"
+        description={`Esta ação remove o equipamento "${deleteConfirm?.name ?? ""}". Não pode ser desfeita.`}
+        confirmLabel="Remover"
+        destructive
+        onConfirm={removeSelectedEquipment}
+      />
     </>
   );
 }
@@ -644,7 +668,9 @@ function SpecificField({
         value={String(value ?? "")}
         onChange={(event) =>
           onChange(
-            field.type === "number" ? Number(event.target.value) : event.target.value,
+            field.type === "number"
+              ? Number(event.target.value)
+              : event.target.value,
           )
         }
       />
@@ -743,7 +769,9 @@ function SensorInstallationsPanel({
               onChange={(event) =>
                 onDraftChange({
                   ...draft,
-                  sensorId: event.target.value ? Number(event.target.value) : "",
+                  sensorId: event.target.value
+                    ? Number(event.target.value)
+                    : "",
                 })
               }
             >

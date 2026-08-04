@@ -2,7 +2,14 @@ import { AppLogo } from "@/components/shared/AppLogo";
 import { UpdateStatusPanel } from "@/components/UpdateStatusPanel";
 import { currentUser } from "@/lib/auth";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, Boxes, Cog, Cpu, LayoutDashboard, LogOut } from "lucide-react";
+import {
+  Activity,
+  Boxes,
+  Cog,
+  Cpu,
+  LayoutDashboard,
+  LogOut,
+} from "lucide-react";
 
 const nav = [
   { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
