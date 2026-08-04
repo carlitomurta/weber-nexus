@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { influxWriteQueue, type Database } from "@weber-nexus/database";
-import { asc, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 
 import { DB_TOKEN } from "../database.constants.js";
 
@@ -28,6 +28,14 @@ export class InfluxWriteQueueRepository {
       .from(influxWriteQueue)
       .orderBy(asc(influxWriteQueue.id))
       .limit(limit);
+  }
+
+  async countPending(): Promise<number> {
+    const [result] = await this.db
+      .select({ pendingCount: count() })
+      .from(influxWriteQueue);
+
+    return result?.pendingCount ?? 0;
   }
 
   async markAttempt(id: number, attemptCount: number, error: string) {

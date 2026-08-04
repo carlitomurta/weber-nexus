@@ -11,6 +11,8 @@ const buildResult = run("yarn", [
   "--win",
   "nsis",
   "--x64",
+  "--publish",
+  "never",
   ...windowsElectronBuilderConfigArgs(),
 ]);
 

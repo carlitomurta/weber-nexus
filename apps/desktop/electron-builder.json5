@@ -9,6 +9,20 @@
     output: "../../release/${version}",
   },
   afterPack: "scripts/after-pack.mjs",
+  extraResources: [
+    {
+      from: "../../packages/database/migrations",
+      to: "database-migrations",
+      filter: ["**/*"],
+    },
+  ],
+  publish: {
+    provider: "github",
+    owner: "${env.NEXUS_GITHUB_OWNER}",
+    repo: "${env.NEXUS_GITHUB_REPO}",
+    releaseType: "draft",
+    private: true,
+  },
   files: [
     "dist",
     "dist-electron",

@@ -36,6 +36,12 @@ jest.mock('@weber-nexus/repository', () => {
     }
   }
 
+  class EquipmentRepository {
+    findEquipmentTypes(): Promise<unknown[]> {
+      return Promise.resolve([]);
+    }
+  }
+
   class InfluxConfigsRepository {
     ensureDefault(): Promise<{ token: string; bucket: string }> {
       return Promise.resolve({
@@ -63,6 +69,7 @@ jest.mock('@weber-nexus/repository', () => {
   Module({
     providers: [
       ControllersRepository,
+      EquipmentRepository,
       SensorsRepository,
       InfluxConfigsRepository,
       InfluxWriteQueueRepository,
@@ -70,6 +77,7 @@ jest.mock('@weber-nexus/repository', () => {
     ],
     exports: [
       ControllersRepository,
+      EquipmentRepository,
       SensorsRepository,
       InfluxConfigsRepository,
       InfluxWriteQueueRepository,
@@ -80,6 +88,7 @@ jest.mock('@weber-nexus/repository', () => {
   return {
     ControllersRepository,
     DEFAULT_INFLUXDB_AUTH_TOKEN: 'test-token',
+    EquipmentRepository,
     InfluxConfigsRepository,
     InfluxWriteQueueRepository,
     RepositoryModule,

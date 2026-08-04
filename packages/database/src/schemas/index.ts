@@ -9,4 +9,5 @@ export {
 export { influxConfigs } from "./influx_config.js";
 export { influxWriteQueue } from "./influx_write_queue.js";
 export { sensors } from "./sensors.js";
+export { migrationHistory, updateHistory } from "./update_history.js";
 export { users } from "./users.js";

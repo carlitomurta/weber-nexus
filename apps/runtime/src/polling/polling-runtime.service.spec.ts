@@ -31,6 +31,7 @@ describe('PollingRuntimeService status updates', () => {
     updateOperationalStatusByControllerId: jest.Mock;
   };
   let telemetryService: { writePollingResult: jest.Mock };
+  let runtimeEnv: { isRuntimeMaintenanceEnabled: jest.Mock };
   let service: PollingRuntimeService;
 
   beforeEach(() => {
@@ -48,10 +49,14 @@ describe('PollingRuntimeService status updates', () => {
     telemetryService = {
       writePollingResult: jest.fn().mockResolvedValue(undefined),
     };
+    runtimeEnv = {
+      isRuntimeMaintenanceEnabled: jest.fn().mockReturnValue(false),
+    };
     service = new PollingRuntimeService(
       controllersRepository as never,
       sensorsRepository as never,
       telemetryService as never,
+      runtimeEnv as never,
     );
   });
 
@@ -81,6 +86,14 @@ describe('PollingRuntimeService status updates', () => {
     expect(
       sensorsRepository.updateOperationalStatusByControllerId,
     ).toHaveBeenCalledWith(1, 'offline');
+  });
+
+  it('does not refresh controller while polling is paused for update', async () => {
+    service.pauseForUpdate();
+
+    await service.refreshController(1);
+
+    expect(controllersRepository.findById).not.toHaveBeenCalled();
   });
 });
 

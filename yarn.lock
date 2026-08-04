@@ -4846,6 +4846,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@weber-nexus/update-agent@workspace:packages/update-agent":
+  version: 0.0.0-use.local
+  resolution: "@weber-nexus/update-agent@workspace:packages/update-agent"
+  dependencies:
+    "@types/node": "npm:^25.9.1"
+    typescript: "npm:^6.0.3"
+  languageName: unknown
+  linkType: soft
+
 "@xmldom/xmldom@npm:^0.9.10":
   version: 0.9.10
   resolution: "@xmldom/xmldom@npm:0.9.10"

@@ -21,7 +21,11 @@
     "test:playwright:ui": "node tests/playwright/scripts/build-desktop.mjs && playwright test -c tests/playwright/playwright.config.ts --ui",
     "runtime:stop": "yarn workspace @weber-nexus/runtime stop",
     "version:set": "node scripts/set-version.mjs",
-    "version:check": "node scripts/set-version.mjs --check"
+    "version:check": "node scripts/set-version.mjs --check",
+    "release:validate": "node scripts/release/validate-release-inputs.mjs",
+    "release:collect-artifacts": "node scripts/release/collect-release-artifacts.mjs",
+    "release:write-sha256": "node scripts/release/write-sha256.mjs",
+    "release:manifest": "node scripts/release/generate-nexus-manifest.mjs"
   },
   "engines": {
     "npm": ">=9.0.0 <=10",

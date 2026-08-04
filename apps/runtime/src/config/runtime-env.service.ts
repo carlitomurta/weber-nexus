@@ -33,6 +33,18 @@ export class RuntimeEnvService {
     return process.env.NODE_ENV !== 'production';
   }
 
+  isRuntimeMaintenanceEnabled(): boolean {
+    return process.env.NEXUS_RUNTIME_MAINTENANCE === '1';
+  }
+
+  updateAgentToken(): string | undefined {
+    return process.env.NEXUS_UPDATE_AGENT_TOKEN;
+  }
+
+  isProduction(): boolean {
+    return process.env.NODE_ENV === 'production';
+  }
+
   isControllerXmlHardwareSyncDisabled(): boolean {
     return (
       process.env.NODE_ENV === 'test' &&

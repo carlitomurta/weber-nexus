@@ -12,6 +12,8 @@ const buildResult = spawnSync(
     "AppImage",
     "deb",
     "--x64",
+    "--publish",
+    "never",
     ...electronBuilderConfigArgs("linux"),
   ],
   {

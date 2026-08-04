@@ -19,6 +19,7 @@ import {
   toPollingController,
   toPollingSensors,
 } from './polling-controller.mapper';
+import { RuntimeEnvService } from '../config/runtime-env.service';
 
 export type RawHoldingRegisterSnapshot = {
   controllerId: number;
@@ -47,6 +48,7 @@ export class PollingRuntimeService
     number,
     RawHoldingRegisterSnapshot
   >();
+  private pausedForUpdate = false;
 
   private readonly pollingEngine = new PollingEngine({
     retry: {
@@ -67,9 +69,18 @@ export class PollingRuntimeService
     private readonly controllersRepository: ControllersRepository,
     private readonly sensorsRepository: SensorsRepository,
     private readonly influxdbTelemetryService: InfluxdbTelemetryService,
+    private readonly runtimeEnv: RuntimeEnvService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
+    if (this.runtimeEnv.isRuntimeMaintenanceEnabled()) {
+      this.pausedForUpdate = true;
+      this.logger.warn(
+        'Runtime iniciado em modo manutenção; coleta bloqueada até liberação.',
+      );
+      return;
+    }
+
     const controllers = await this.controllersRepository.findAll();
 
     this.logger.info(
@@ -90,6 +101,38 @@ export class PollingRuntimeService
     this.rawHoldingRegisterSnapshots.delete(controllerId);
   }
 
+  pauseForUpdate(): void {
+    this.pausedForUpdate = true;
+    this.pollingEngine.stop();
+    this.rawHoldingRegisterSnapshots.clear();
+    this.logger.warn('Coleta pausada para atualização do Nexus.');
+  }
+
+  async resumeAfterUpdate(): Promise<void> {
+    if (!this.pausedForUpdate) return;
+
+    this.pausedForUpdate = false;
+    const controllers = await this.controllersRepository.findAll();
+
+    for (const controller of controllers) {
+      await this.refreshController(controller.id);
+    }
+
+    this.logger.info('Coleta liberada após atualização do Nexus.');
+  }
+
+  health(): {
+    status: 'running' | 'paused_for_update';
+    pausedForUpdate: boolean;
+    latestSnapshotCount: number;
+  } {
+    return {
+      status: this.pausedForUpdate ? 'paused_for_update' : 'running',
+      pausedForUpdate: this.pausedForUpdate,
+      latestSnapshotCount: this.rawHoldingRegisterSnapshots.size,
+    };
+  }
+
   getLatestRawHoldingRegisterSnapshots(): RawHoldingRegisterSnapshot[] {
     return [...this.rawHoldingRegisterSnapshots.values()].sort(
       (a, b) => a.controllerId - b.controllerId,
@@ -97,6 +140,13 @@ export class PollingRuntimeService
   }
 
   async refreshController(controllerId: number): Promise<void> {
+    if (this.pausedForUpdate) {
+      this.logger.warn(
+        `Coleta do controlador ${controllerId} ignorada durante modo manutenção`,
+      );
+      return;
+    }
+
     try {
       const controller =
         await this.controllersRepository.findById(controllerId);

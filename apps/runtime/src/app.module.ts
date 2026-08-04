@@ -7,6 +7,7 @@ import { DiagnosticsModule } from './diagnostics/diagnostics.module';
 import { EquipmentModule } from './equipment/equipment.module';
 import { InfluxdbModule } from './influxdb/influxdb.module';
 import { RuntimeControlModule } from './runtime-control/runtime-control.module';
+import { RuntimeUpdateModule } from './runtime-update/runtime-update.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RuntimeControlModule } from './runtime-control/runtime-control.module';
     ControllersModule,
     EquipmentModule,
     DiagnosticsModule,
+    RuntimeUpdateModule,
   ],
 })
 export class AppModule {}

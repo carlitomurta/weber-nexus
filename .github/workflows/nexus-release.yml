@@ -1,0 +1,181 @@
+name: Nexus Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag SemVer existente, exemplo v1.2.3"
+        required: true
+        type: string
+      channel:
+        description: "Canal do manifesto Nexus"
+        required: true
+        default: "internal"
+        type: choice
+        options:
+          - internal
+          - beta
+          - stable
+      rollout:
+        description: "Percentual de rollout"
+        required: true
+        default: "100"
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "20.x"
+  NEXUS_BUILD_CHANNEL: production
+  NEXUS_RELEASE_CHANNEL: ${{ inputs.channel || 'internal' }}
+  NEXUS_RELEASE_ROLLOUT: ${{ inputs.rollout || '100' }}
+  NEXUS_GITHUB_OWNER: ${{ github.repository_owner }}
+  NEXUS_GITHUB_REPO: ${{ github.event.repository.name }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
+      - run: yarn workspace @weber-nexus/update-agent test
+      - run: yarn workspace @weber-nexus/database build
+      - run: yarn workspace @weber-nexus/repository build
+      - run: yarn workspace @weber-nexus/runtime test
+      - run: yarn workspace @weber-nexus/runtime test:e2e
+      - run: yarn workspace @weber-nexus/desktop lint
+
+  build-windows:
+    name: Build Windows
+    needs: validate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
+      - run: yarn workspace @weber-nexus/desktop build:bundle
+      - run: yarn workspace @weber-nexus/desktop build:windows
+      - run: yarn release:collect-artifacts --tag "${{ inputs.tag || github.ref_name }}" --output release-artifacts
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-linux:
+    name: Build Linux
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
+      - run: yarn workspace @weber-nexus/desktop build:bundle
+      - run: yarn workspace @weber-nexus/desktop build:linux
+      - run: yarn release:collect-artifacts --tag "${{ inputs.tag || github.ref_name }}" --output release-artifacts
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-linux
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 7
+
+  draft-release:
+    name: Draft Release
+    needs:
+      - build-windows
+      - build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - run: corepack enable
+      - run: yarn install --immutable
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - run: yarn release:write-sha256 release-assets
+
+      - name: Create or reuse draft release
+        id: release_state
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" > release.json 2>/dev/null; then
+            draft="$(jq -r '.draft' release.json)"
+            if [ "$draft" != "true" ]; then
+              echo "Release ${tag} já foi publicada; publique nova versão SemVer."
+              exit 1
+            fi
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            printf "Release Nexus %s\n\nDraft gerado automaticamente. Promova manualmente após validação operacional.\n" "$tag" > release-notes.md
+            gh release create "$tag" --draft --title "Nexus $tag" --notes-file release-notes.md
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload release assets
+        if: steps.release_state.outputs.exists != 'true'
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          find release-assets -maxdepth 1 -type f ! -name 'nexus-update-manifest.json' -print0 | xargs -0 gh release upload "$tag"
+
+      - name: Generate Nexus manifest
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          commit_sha="$(git rev-parse HEAD)"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq '.assets' > release-assets/github-assets.json
+          yarn release:manifest --tag "$tag" --commit "$commit_sha" --assets-root release-assets --assets-json release-assets/github-assets.json --output release-assets/nexus-update-manifest.json
+
+      - name: Upload Nexus manifest
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          gh release upload "$tag" release-assets/nexus-update-manifest.json --clobber

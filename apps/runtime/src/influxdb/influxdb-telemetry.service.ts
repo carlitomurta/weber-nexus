@@ -55,6 +55,31 @@ export class InfluxdbTelemetryService
   }
 
   onApplicationShutdown(): void {
+    this.stopQueueDrainTimer();
+  }
+
+  async checkpointQueueForUpdate(): Promise<{
+    pendingQueueItems: number;
+    checkpointedAtUtc: string;
+  }> {
+    this.stopQueueDrainTimer();
+
+    try {
+      await this.drainQueue(await this.influxConfigsRepository.ensureDefault());
+    } catch (error) {
+      this.logger.warn(
+        'Fila de telemetria preservada para atualização; drenagem não concluída.',
+        error,
+      );
+    }
+
+    return {
+      pendingQueueItems: await this.influxWriteQueueRepository.countPending(),
+      checkpointedAtUtc: new Date().toISOString(),
+    };
+  }
+
+  private stopQueueDrainTimer(): void {
     if (!this.queueDrainTimer) return;
 
     clearInterval(this.queueDrainTimer);
