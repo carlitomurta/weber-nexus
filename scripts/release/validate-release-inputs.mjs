@@ -1,4 +1,4 @@
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, open, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
 const repoRoot = process.cwd();
@@ -29,11 +29,13 @@ for (const packageFile of packageFiles) {
 await assertDirectoryHasSqlMigrations(
   path.join(repoRoot, "packages/database/migrations"),
 );
-await assertFile(
+await assertMaterializedLfsFile(
   path.join(repoRoot, "resources/influxdb/3.9.3/windows/influxdb3.exe"),
+  10 * 1024 * 1024,
 );
-await assertFile(
+await assertMaterializedLfsFile(
   path.join(repoRoot, "resources/influxdb/3.9.3/linux/influxdb3"),
+  10 * 1024 * 1024,
 );
 
 const electronBuilderConfig = await readFile(
@@ -70,6 +72,37 @@ async function assertFile(filePath) {
     await access(filePath);
   } catch {
     fail(`Arquivo obrigatório não encontrado: ${path.relative(repoRoot, filePath)}.`);
+  }
+}
+
+async function assertMaterializedLfsFile(filePath, minimumBytes) {
+  await assertFile(filePath);
+
+  const metadata = await stat(filePath);
+
+  if (metadata.size < minimumBytes) {
+    fail(
+      `Arquivo LFS obrigatório não foi materializado: ${path.relative(repoRoot, filePath)}.`,
+    );
+  }
+
+  const file = await open(filePath, "r");
+
+  try {
+    const buffer = Buffer.alloc(128);
+    await file.read(buffer, 0, buffer.length, 0);
+
+    if (
+      buffer
+        .toString("utf8")
+        .startsWith("version https://git-lfs.github.com/spec/v1")
+    ) {
+      fail(
+        `Arquivo LFS obrigatório está como pointer: ${path.relative(repoRoot, filePath)}.`,
+      );
+    }
+  } finally {
+    await file.close();
   }
 }
 
