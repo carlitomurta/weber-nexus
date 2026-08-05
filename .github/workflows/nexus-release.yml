@@ -59,8 +59,9 @@ jobs:
       - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
       - run: yarn workspace @weber-nexus/update-agent build
       - run: find packages/update-agent/dist -maxdepth 3 -type f | sort
-      - run: yarn workspace @weber-nexus/update-agent test:compiled
-      - run: yarn workspace @weber-nexus/database test
+      - run: node --test packages/update-agent/dist/__tests__/*.test.js
+      - run: yarn workspace @weber-nexus/database build
+      - run: node --test packages/database/dist/__tests__/*.test.js
       - run: yarn workspace @weber-nexus/repository build
       - run: yarn workspace @weber-nexus/runtime test
       - run: yarn workspace @weber-nexus/runtime test:e2e
