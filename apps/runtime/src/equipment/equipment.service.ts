@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   EquipmentRepository,
   SensorsRepository,
@@ -107,7 +111,9 @@ export class EquipmentService {
     const sensor = await this.sensorsRepository.findById(input.sensorId);
 
     if (!sensor || sensor.deletedAt) {
-      throw new NotFoundException(`Sensor ${input.sensorId} não foi encontrado`);
+      throw new NotFoundException(
+        `Sensor ${input.sensorId} não foi encontrado`,
+      );
     }
 
     const activeInstallation =
@@ -189,7 +195,9 @@ export class EquipmentService {
     );
 
     const typeById = new Map(equipmentTypes.map((type) => [type.id, type]));
-    const standardById = new Map(standards.map((standard) => [standard.id, standard]));
+    const standardById = new Map(
+      standards.map((standard) => [standard.id, standard]),
+    );
     const classificationByEquipmentId = new Map(
       classifications.map((classification) => [
         classification.equipmentId,
@@ -235,7 +243,8 @@ export class EquipmentService {
   }
 
   private async getEquipmentType(id: number): Promise<EquipmentType> {
-    const equipmentType = await this.equipmentRepository.findEquipmentTypeById(id);
+    const equipmentType =
+      await this.equipmentRepository.findEquipmentTypeById(id);
 
     if (!equipmentType || !equipmentType.active) {
       throw new BadRequestException('Tipo de equipamento inválido');
@@ -319,7 +328,9 @@ export class EquipmentService {
       if (value === 'true') return true;
       if (value === 'false') return false;
 
-      throw new BadRequestException(`${field.label} deve ser verdadeiro ou falso`);
+      throw new BadRequestException(
+        `${field.label} deve ser verdadeiro ou falso`,
+      );
     }
 
     if (field.type === 'select') {
@@ -369,7 +380,9 @@ export class EquipmentService {
     const suggestion = this.suggestStandard(record, equipmentType);
 
     if (!suggestion) {
-      await this.equipmentRepository.supersedeSuggestedClassification(record.id);
+      await this.equipmentRepository.supersedeSuggestedClassification(
+        record.id,
+      );
       return;
     }
 

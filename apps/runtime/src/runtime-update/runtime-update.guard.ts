@@ -25,9 +25,7 @@ export class RuntimeUpdateGuard implements CanActivate {
 
     if (configuredToken) {
       if (requestToken !== configuredToken) {
-        throw new ForbiddenException(
-          'Token do Nexus Update Agent inválido.',
-        );
+        throw new ForbiddenException('Token do Nexus Update Agent inválido.');
       }
 
       return true;

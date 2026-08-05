@@ -94,7 +94,9 @@ function readTextWithDefault(
   return value.trim() || fallback;
 }
 
-function parseSpecificAttributes(value: unknown): NewEquipment['specificAttributes'] {
+function parseSpecificAttributes(
+  value: unknown,
+): NewEquipment['specificAttributes'] {
   if (value === undefined || value === null) return {};
 
   if (typeof value !== 'object' || Array.isArray(value)) {

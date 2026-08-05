@@ -96,9 +96,9 @@ describe('ControllerXmlConfigService upload verification', () => {
     expect(mockResetController).toHaveBeenCalledWith({
       host: '192.168.1.1',
     });
-    expect(
-      mockUploadWlConfigXml.mock.invocationCallOrder[0],
-    ).toBeLessThan(mockResetController.mock.invocationCallOrder[0]);
+    expect(mockUploadWlConfigXml.mock.invocationCallOrder[0]).toBeLessThan(
+      mockResetController.mock.invocationCallOrder[0],
+    );
     expect(mockReadControllerLocalRegister).not.toHaveBeenCalled();
 
     await jest.advanceTimersByTimeAsync(5000);

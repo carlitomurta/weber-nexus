@@ -5,13 +5,17 @@ jest.mock('@weber-nexus/logger', () => ({
     warn = jest.fn();
   },
 }));
-jest.mock('@weber-nexus/polling-engine', () => ({
-  PollingEngine: class {
-    startController = jest.fn();
-    stop = jest.fn();
-    stopController = jest.fn();
-  },
-}), { virtual: true });
+jest.mock(
+  '@weber-nexus/polling-engine',
+  () => ({
+    PollingEngine: class {
+      startController = jest.fn();
+      stop = jest.fn();
+      stopController = jest.fn();
+    },
+  }),
+  { virtual: true },
+);
 jest.mock('@weber-nexus/repository', () => ({
   ControllersRepository: class {},
   SensorsRepository: class {},

@@ -4496,6 +4496,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@weber-nexus/desktop@workspace:apps/desktop"
   dependencies:
+    "@eslint/js": "npm:^10.0.1"
     "@hookform/resolvers": "npm:^5.7.1"
     "@radix-ui/react-alert-dialog": "npm:^1.1.23"
     "@tailwindcss/vite": "npm:^4.3.3"
@@ -4522,6 +4523,7 @@ __metadata:
     eslint: "npm:^10.8.0"
     eslint-plugin-react-hooks: "npm:^7.1.1"
     eslint-plugin-react-refresh: "npm:^0.5.3"
+    globals: "npm:^17.9.0"
     lucide-react: "npm:^1.28.0"
     prettier: "npm:^3.9.6"
     react: "npm:^19.2.8"

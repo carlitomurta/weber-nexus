@@ -39,7 +39,9 @@ export class InfluxdbSchemaMigrationService implements OnApplicationBootstrap {
 
   private async applyRoutines(): Promise<void> {
     if (this.runtimeEnv.isInfluxdbDisabled()) {
-      this.logger.warn('Rotinas InfluxDB ignoradas porque InfluxDB está desabilitado.');
+      this.logger.warn(
+        'Rotinas InfluxDB ignoradas porque InfluxDB está desabilitado.',
+      );
       this.applied = true;
       return;
     }
@@ -64,11 +66,10 @@ export class InfluxdbSchemaMigrationService implements OnApplicationBootstrap {
   }
 
   private async applyRoutine(routine: InfluxSchemaRoutine): Promise<void> {
-    const existing =
-      await this.migrationHistoryRepository.findByKindAndVersion(
-        'influx',
-        routine.version,
-      );
+    const existing = await this.migrationHistoryRepository.findByKindAndVersion(
+      'influx',
+      routine.version,
+    );
 
     if (
       existing?.status === 'success' &&

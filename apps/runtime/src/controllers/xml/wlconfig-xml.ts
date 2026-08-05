@@ -6,7 +6,6 @@ import {
   applyFileInfoMetadata,
   controllerModelFromWlConfigDocument,
   defaultWlConfigTemplateXml,
-  formatWlConfigTimestamp,
   isSyntheticFileInfo,
   readFileInfo,
 } from './wlconfig-xml-metadata';
