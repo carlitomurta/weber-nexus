@@ -63,6 +63,8 @@ jobs:
       - run: yarn workspace @weber-nexus/database build
       - run: node --test packages/database/dist/__tests__/*.test.js
       - run: yarn workspace @weber-nexus/repository build
+      - run: yarn workspace @weber-nexus/modbus build
+      - run: yarn workspace @weber-nexus/polling-engine build
       - run: yarn workspace @weber-nexus/runtime test
       - run: yarn workspace @weber-nexus/runtime test:e2e
       - run: yarn workspace @weber-nexus/desktop lint

@@ -11,7 +11,7 @@ jest.mock('@weber-nexus/polling-engine', () => ({
     stop = jest.fn();
     stopController = jest.fn();
   },
-}));
+}), { virtual: true });
 jest.mock('@weber-nexus/repository', () => ({
   ControllersRepository: class {},
   SensorsRepository: class {},

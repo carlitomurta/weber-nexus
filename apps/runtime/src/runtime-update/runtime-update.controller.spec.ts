@@ -23,7 +23,7 @@ jest.mock('@weber-nexus/polling-engine', () => ({
     stopController(): void {}
     stop(): void {}
   },
-}));
+}), { virtual: true });
 
 jest.mock('@weber-nexus/repository', () => {
   const { Global, Module } =
