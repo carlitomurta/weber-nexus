@@ -51,9 +51,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
 
       - run: corepack enable
+      - run: corepack prepare yarn@4.14.1 --activate
+      - run: yarn --version
       - run: yarn install --immutable
       - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
       - run: yarn workspace @weber-nexus/update-agent test
@@ -76,9 +77,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
 
       - run: corepack enable
+      - run: corepack prepare yarn@4.14.1 --activate
+      - run: yarn --version
       - run: yarn install --immutable
       - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
       - run: yarn workspace @weber-nexus/desktop build:bundle
@@ -105,9 +107,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
 
       - run: corepack enable
+      - run: corepack prepare yarn@4.14.1 --activate
+      - run: yarn --version
       - run: yarn install --immutable
       - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
       - run: yarn workspace @weber-nexus/desktop build:bundle
@@ -136,9 +139,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
 
       - run: corepack enable
+      - run: corepack prepare yarn@4.14.1 --activate
+      - run: yarn --version
       - run: yarn install --immutable
 
       - uses: actions/download-artifact@v8
