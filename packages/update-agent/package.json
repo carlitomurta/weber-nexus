@@ -24,7 +24,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc",
-    "test": "yarn build && node --test dist/__tests__/*.test.js"
+    "test": "yarn build && yarn test:compiled",
+    "test:compiled": "node --test dist/__tests__/*.test.js"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
