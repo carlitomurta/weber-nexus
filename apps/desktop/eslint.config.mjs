@@ -1,10 +1,10 @@
 // @ts-check
 import eslint from "@eslint/js";
-import tsParser from "@typescript-eslint/parser";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
-import globals from "globals";
+import tsParser from "@typescript-eslint/parser";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import reactRefreshPlugin from "eslint-plugin-react-refresh";
+import globals from "globals";
 
 export default [
   {
