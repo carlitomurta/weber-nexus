@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 export const DEFAULT_RUNTIME_HOST = '127.0.0.1';
-export const DEFAULT_RUNTIME_PORT = 3000;
+export const DEFAULT_RUNTIME_PORT = 4000;
 export const DEFAULT_INFLUXDB_URL = 'http://127.0.0.1:8181';
 export const DEFAULT_INFLUXDB_HTTP_BIND = '127.0.0.1:8181';
 export const DEFAULT_INFLUXDB_NODE_ID = 'nexus-local';

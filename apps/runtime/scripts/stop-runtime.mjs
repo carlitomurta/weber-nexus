@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
-const port = process.env.PORT ?? '3000';
+const port = process.env.PORT ?? '4000';
 const endpointTimeoutMs = Number(process.env.NEXUS_RUNTIME_STOP_TIMEOUT_MS ?? 3000);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(scriptDir, '../../..');

@@ -76,6 +76,7 @@ type UpdateInstallResult = {
 };
 
 const UPDATE_POLL_INTERVAL_MS = 60_000;
+const DEFAULT_RUNTIME_API_URL = "http://127.0.0.1:4000";
 let updatePollTimer: NodeJS.Timeout | undefined;
 let lastUpdateStatus: UpdateStatus | undefined;
 let lastNotifiedUpdateVersion: string | null = null;
@@ -138,13 +139,13 @@ async function ensureRuntimeProcess() {
   const runtimeUrl =
     process.env.VITE_RUNTIME_API_URL ?? process.env.NEXUS_RUNTIME_API_URL;
 
-  if (await isRuntimeReachable(runtimeUrl ?? "http://localhost:3000")) {
+  if (await isRuntimeReachable(runtimeUrl ?? DEFAULT_RUNTIME_API_URL)) {
     publishDeveloperDiagnostic({
       source: "runtime",
       level: "info",
       audience: "developer",
       message: "Runtime API já está respondendo.",
-      detail: runtimeUrl ?? "http://localhost:3000",
+      detail: runtimeUrl ?? DEFAULT_RUNTIME_API_URL,
     });
     runtimeStarted = true;
     return;
@@ -535,7 +536,7 @@ async function readUpdateStatus(): Promise<UpdateStatus> {
     const runtimeUrl =
       process.env.VITE_RUNTIME_API_URL ??
       process.env.NEXUS_RUNTIME_API_URL ??
-      "http://127.0.0.1:3000";
+      DEFAULT_RUNTIME_API_URL;
     const runtimeStatus = await fetchJson<{ status?: string }>(
       new URL("/runtime/update/status", normalizeUrl(runtimeUrl)).toString(),
       process.env.NEXUS_UPDATE_AGENT_TOKEN,
