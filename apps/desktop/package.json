@@ -20,7 +20,7 @@
     "build:runtime": "yarn workspace @weber-nexus/logger build && yarn workspace @weber-nexus/database dev && yarn workspace @weber-nexus/repository build && yarn workspace @weber-nexus/modbus build && yarn workspace @weber-nexus/polling-engine build && yarn workspace @weber-nexus/runtime build",
     "build:windows": "node scripts/build-windows.mjs",
     "build:linux": "node scripts/build-linux.mjs",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint . --config eslint.config.mjs --max-warnings 0",
     "preview": "vite preview",
     "prettier": "prettier . -w"
   },
