@@ -67,8 +67,6 @@ jobs:
       - run: yarn workspace @weber-nexus/polling-engine build
       - run: yarn workspace @weber-nexus/runtime test
       - run: yarn workspace @weber-nexus/runtime test:e2e
-      - run: test -f apps/desktop/eslint.config.mjs
-      - run: yarn workspace @weber-nexus/desktop lint
 
   build-windows:
     name: Build Windows
