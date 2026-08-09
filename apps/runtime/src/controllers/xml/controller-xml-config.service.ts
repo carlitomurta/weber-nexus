@@ -26,8 +26,10 @@ import {
   hasReusableWlConfigFileInfo,
   parseWlConfigXml,
   type ParsedWlConfig,
+  WlConfigXmlError,
 } from './wlconfig-xml';
 import { RuntimeEnvService } from '../../config/runtime-env.service';
+import { writeInvalidControllerXmlDiagnostic } from './controller-xml-diagnostics';
 
 export type ControllerXmlSyncResult = {
   readonly status: 'synced' | 'unchanged';
@@ -65,7 +67,10 @@ export class ControllerXmlConfigService {
     try {
       const rawXml = await downloadWlConfigXml({ host: ipAddress });
       const cleanedXml = cleanWlConfigXml(rawXml);
-      const parsed = parseWlConfigXml(cleanedXml);
+      const parsed = await this.parseDownloadedControllerXml(
+        ipAddress,
+        cleanedXml,
+      );
 
       this.logger.info(
         `WLConfig.xml baixado de ${ipAddress}: checksum=${parsed.checksum} bytes=${Buffer.byteLength(parsed.xml, 'utf8')} sensores=${parsed.sensors.length}`,
@@ -76,6 +81,44 @@ export class ControllerXmlConfigService {
       this.logger.error(`Falha ao baixar WLConfig.xml de ${ipAddress}`, error);
       throw new BadGatewayException(
         'Não foi possível baixar um WLConfig.xml válido',
+      );
+    }
+  }
+
+  private async parseDownloadedControllerXml(
+    ipAddress: string,
+    xml: string,
+  ): Promise<ParsedWlConfig> {
+    try {
+      return parseWlConfigXml(xml);
+    } catch (error) {
+      if (error instanceof WlConfigXmlError) {
+        await this.writeInvalidXmlDiagnostic(ipAddress, xml, error);
+      }
+
+      throw error;
+    }
+  }
+
+  private async writeInvalidXmlDiagnostic(
+    ipAddress: string,
+    xml: string,
+    validationError: WlConfigXmlError,
+  ): Promise<void> {
+    try {
+      const diagnosticPath = await writeInvalidControllerXmlDiagnostic({
+        ipAddress,
+        xml,
+      });
+
+      this.logger.warn(
+        `WLConfig.xml inválido de ${ipAddress} salvo para diagnóstico em ${diagnosticPath}`,
+        validationError,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Não foi possível salvar WLConfig.xml inválido de ${ipAddress} para diagnóstico`,
+        error,
       );
     }
   }

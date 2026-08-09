@@ -32,3 +32,6 @@ db
 .playwright/
 playwright-report/
 test-results/
+
+# Resources
+resources/influxdb/*

@@ -1,10 +1,16 @@
+const mockWriteInvalidControllerXmlDiagnostic = jest.fn();
+jest.mock('./controller-xml-diagnostics', () => ({
+  writeInvalidControllerXmlDiagnostic: mockWriteInvalidControllerXmlDiagnostic,
+}));
+
 const mockUploadWlConfigXml = jest.fn();
 const mockCreateWlConfigUploadPlan = jest.fn();
+const mockDownloadWlConfigXml = jest.fn();
 const mockReadControllerLocalRegister = jest.fn();
 const mockResetController = jest.fn();
 jest.mock('./controller-file-transfer', () => ({
   createWlConfigUploadPlan: mockCreateWlConfigUploadPlan,
-  downloadWlConfigXml: jest.fn(),
+  downloadWlConfigXml: mockDownloadWlConfigXml,
   readControllerLocalRegister: mockReadControllerLocalRegister,
   resetController: mockResetController,
   uploadWlConfigXml: mockUploadWlConfigXml,
@@ -61,6 +67,10 @@ describe('ControllerXmlConfigService upload verification', () => {
     });
     mockReadControllerLocalRegister.mockResolvedValue(1);
     mockResetController.mockResolvedValue(undefined);
+    mockDownloadWlConfigXml.mockResolvedValue(controller.xmlConfig);
+    mockWriteInvalidControllerXmlDiagnostic.mockResolvedValue(
+      '/tmp/WLConfig-invalid.xml',
+    );
     mockLoggerDebug.mockClear();
     mockLoggerError.mockClear();
     mockLoggerInfo.mockClear();
@@ -144,5 +154,26 @@ describe('ControllerXmlConfigService upload verification', () => {
     ).rejects.toThrow('Não foi possível enviar o WLConfig.xml');
 
     expect(mockResetController).not.toHaveBeenCalled();
+  });
+
+  it('saves downloaded XML diagnostics when validation fails', async () => {
+    const invalidXml = `<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <rtu_read>
+</configuration>`;
+    mockDownloadWlConfigXml.mockResolvedValueOnce(invalidXml);
+
+    await expect(
+      service.downloadControllerConfig('192.168.1.50'),
+    ).rejects.toThrow('Não foi possível baixar um WLConfig.xml válido');
+
+    expect(mockWriteInvalidControllerXmlDiagnostic).toHaveBeenCalledWith({
+      ipAddress: '192.168.1.50',
+      xml: invalidXml,
+    });
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('salvo para diagnóstico'),
+      expect.any(Error),
+    );
   });
 });
