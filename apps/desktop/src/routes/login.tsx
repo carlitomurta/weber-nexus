@@ -1,4 +1,4 @@
-import { type ComponentType, type FormEvent, useState } from "react";
+import { type ComponentType, type SubmitEvent, useState } from "react";
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { isAxiosError } from "axios";
@@ -29,7 +29,7 @@ function LoginPage() {
   const loginMutation = useLogin();
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);

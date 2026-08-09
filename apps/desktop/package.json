@@ -16,13 +16,14 @@
     "build": "node scripts/build-channel.mjs",
     "build:prod": "node scripts/build-channel.mjs production",
     "build:dev": "node scripts/build-channel.mjs development",
-    "build:bundle": "yarn build:runtime && tsc && vite build",
+    "build:bundle": "yarn build:runtime && yarn routes:generate && tsc && vite build",
     "build:runtime": "yarn workspace @weber-nexus/logger build && yarn workspace @weber-nexus/database dev && yarn workspace @weber-nexus/repository build && yarn workspace @weber-nexus/modbus build && yarn workspace @weber-nexus/polling-engine build && yarn workspace @weber-nexus/runtime build",
     "build:windows": "node scripts/build-windows.mjs",
     "build:linux": "node scripts/build-linux.mjs",
     "lint": "eslint . --config eslint.config.mjs --max-warnings 0",
     "preview": "vite preview",
-    "prettier": "prettier . -w"
+    "prettier": "prettier . -w",
+    "routes:generate": "node scripts/generate-routes.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
@@ -32,6 +33,7 @@
     "@tanstack/react-router": "^1.170.19",
     "@tanstack/react-router-devtools": "^1.167.1",
     "@tanstack/router-core": "^1.171.16",
+    "@tanstack/router-generator": "1.167.22",
     "@tanstack/router-plugin": "^1.168.24",
     "@testing-library/react": "^16.3.2",
     "@weber-nexus/runtime": "workspace:*",
