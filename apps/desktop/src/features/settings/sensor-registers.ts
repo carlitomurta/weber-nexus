@@ -7,6 +7,7 @@ import type { SensorDraft } from "./settings.type";
 export function buildSensorPayload(
   draft: SensorDraft,
   controllerId: number,
+  isMultihop = false,
 ): CreateSensorInput | { error: string } {
   if (!draft.name.trim()) {
     return { error: "Informe o nome do sensor." };
@@ -34,14 +35,17 @@ export function buildSensorPayload(
     (register) =>
       !register.name.trim() ||
       !Number.isInteger(register.address) ||
-      register.address < firstAddress ||
-      register.address > lastAddress ||
+      register.address <= 0 ||
+      (!isMultihop &&
+        (register.address < firstAddress || register.address > lastAddress)) ||
       isInvalidRegisterScale(register),
   );
 
   if (invalidRegister) {
     return {
-      error: `Registros do nó ${draft.nodeId} devem ficar entre ${firstAddress} e ${lastAddress}.`,
+      error: isMultihop
+        ? `Registros do nó ${draft.nodeId} devem ter endereços positivos.`
+        : `Registros do nó ${draft.nodeId} devem ficar entre ${firstAddress} e ${lastAddress}.`,
     };
   }
 
@@ -74,7 +78,17 @@ export function lastNodeRegisterAddress(nodeId: number) {
 export function nextRegisterAddress(
   nodeId: number,
   registers: SensorRegister[],
+  isMultihop = false,
 ) {
+  if (isMultihop) {
+    const lastAddress = Math.max(
+      0,
+      ...registers.map((register) => register.address),
+    );
+
+    return lastAddress + 1;
+  }
+
   const firstAddress = firstNodeRegisterAddress(nodeId);
   const usedAddresses = new Set(registers.map((register) => register.address));
 

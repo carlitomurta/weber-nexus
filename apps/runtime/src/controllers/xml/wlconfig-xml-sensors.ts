@@ -1,6 +1,8 @@
 import type { NewSensor, Sensor } from '@weber-nexus/repository';
 import {
   ATTRIBUTE_PREFIX,
+  type WlConfigBuildOptions,
+  type WlConfigParseOptions,
   type WlConfigDocument,
   WlConfigXmlError,
 } from './wlconfig-xml.types';
@@ -15,10 +17,12 @@ import {
 
 export function sensorsFromWlConfigDocument(
   document: WlConfigDocument,
+  options: WlConfigParseOptions = {},
 ): Omit<NewSensor, 'controllerId'>[] {
   const localRegisters = indexedLocalRegisters(document);
   const rtuRead = asRecord(document.configuration.rtu_read);
   const rules = asArray(rtuRead?.rule);
+  const useMultihopNodeIds = shouldUseMultihopNodeIds(rules, options);
 
   const sensors = rules
     .map((rule): Omit<NewSensor, 'controllerId'> | undefined => {
@@ -58,7 +62,7 @@ export function sensorsFromWlConfigDocument(
       });
 
       return {
-        nodeId: Math.floor((remreg - 1) / 16),
+        nodeId: nodeIdFromRule(rule, remreg, useMultihopNodeIds),
         name,
         description: null,
         model: null,
@@ -74,6 +78,49 @@ export function sensorsFromWlConfigDocument(
     );
 
   return mergeSensorsByName(sensors);
+}
+
+function nodeIdFromRule(
+  rule: Record<string, unknown>,
+  remreg: number,
+  useMultihopNodeIds: boolean,
+): number {
+  if (useMultihopNodeIds) {
+    return (
+      readPositiveIntegerAttribute(rule, 'unit') ??
+      Math.floor((remreg - 1) / 16)
+    );
+  }
+
+  return Math.floor((remreg - 1) / 16);
+}
+
+function shouldUseMultihopNodeIds(
+  rules: ReadonlyArray<Record<string, unknown>>,
+  options: WlConfigParseOptions,
+): boolean {
+  if (options.isMultihop !== undefined && options.isMultihop !== null) {
+    return options.isMultihop;
+  }
+
+  return rules.some(ruleUsesMultihopAddressing);
+}
+
+function ruleUsesMultihopAddressing(rule: Record<string, unknown>): boolean {
+  const unit = readPositiveIntegerAttribute(rule, 'unit');
+  const remreg = readPositiveIntegerAttribute(rule, 'remreg');
+  const count = readPositiveIntegerAttribute(rule, 'count') ?? 1;
+
+  if (unit === undefined || remreg === undefined) return false;
+
+  const firstPerformanceRegister = unit * 16 + 1;
+  const lastPerformanceRegister = unit * 16 + 16;
+  const lastRuleRegister = remreg + count - 1;
+
+  return (
+    remreg < firstPerformanceRegister ||
+    lastRuleRegister > lastPerformanceRegister
+  );
 }
 
 export function assertSingleStatusRegisterPerNode(
@@ -103,6 +150,7 @@ export function assertSingleStatusRegisterPerNode(
 
 export function buildLocalRegistersAndRules(
   sensors: ReadonlyArray<Sensor | NewSensor>,
+  options: WlConfigBuildOptions = {},
 ): {
   localRegisters: Record<string, string>[];
   rules: Record<string, string>[];
@@ -144,6 +192,7 @@ export function buildLocalRegistersAndRules(
           firstRegister.address,
           group.length,
           localreg,
+          options.isMultihop === true ? sensor.nodeId : 1,
         ),
       );
     }
@@ -228,6 +277,7 @@ function toRtuReadRuleXmlAttributes(
   remreg: number,
   count: number,
   localreg: number,
+  unit: number,
 ): Record<string, string> {
   return {
     [`${ATTRIBUTE_PREFIX}count`]: String(count),
@@ -243,7 +293,7 @@ function toRtuReadRuleXmlAttributes(
     [`${ATTRIBUTE_PREFIX}remtype`]: 'hold_reg',
     [`${ATTRIBUTE_PREFIX}scale`]: '0',
     [`${ATTRIBUTE_PREFIX}swapped`]: '0',
-    [`${ATTRIBUTE_PREFIX}unit`]: '1',
+    [`${ATTRIBUTE_PREFIX}unit`]: String(unit),
   };
 }
 

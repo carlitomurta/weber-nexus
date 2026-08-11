@@ -47,7 +47,7 @@ export class SensorsService {
     const currentSensors = await this.sensorsRepository.findByControllerId(
       sensor.controllerId,
     );
-    this.validateSensorConfiguration(sensor, currentSensors);
+    this.validateSensorConfiguration(sensor, currentSensors, controller);
     const xmlMetadata = await this.uploadControllerConfigOrThrow(
       controller,
       [...currentSensors, sensor],
@@ -84,7 +84,12 @@ export class SensorsService {
     const currentSensors = await this.sensorsRepository.findByControllerId(
       sensor.controllerId,
     );
-    this.validateSensorConfiguration(sensor, currentSensors, sensor.id);
+    this.validateSensorConfiguration(
+      sensor,
+      currentSensors,
+      controller,
+      sensor.id,
+    );
     const nextSensors = currentSensors.map((item) =>
       item.id === sensor.id ? { ...item, ...sensor } : item,
     );
@@ -144,6 +149,7 @@ export class SensorsService {
   private validateSensorConfiguration(
     sensor: NewSensor | SensorWrite,
     currentSensors: ReadonlyArray<Sensor>,
+    controller: Controller,
     sensorId?: number,
   ): void {
     if (
@@ -166,8 +172,10 @@ export class SensorsService {
       (register) =>
         !register.name?.trim() ||
         !Number.isInteger(register.address) ||
-        register.address < firstNodeRegisterAddress(sensor.nodeId) ||
-        register.address > lastNodeRegisterAddress(sensor.nodeId) ||
+        register.address <= 0 ||
+        (!controller.isMultihop &&
+          (register.address < firstNodeRegisterAddress(sensor.nodeId) ||
+            register.address > lastNodeRegisterAddress(sensor.nodeId))) ||
         (register.localRegisterNumber !== undefined &&
           (!Number.isInteger(register.localRegisterNumber) ||
             register.localRegisterNumber <= 0)) ||
@@ -176,13 +184,16 @@ export class SensorsService {
 
     if (invalidRegister !== undefined) {
       throw new BadRequestException(
-        `Registros do nó ${sensor.nodeId} devem ter nome e endereços entre ${firstNodeRegisterAddress(sensor.nodeId)} e ${lastNodeRegisterAddress(sensor.nodeId)}`,
+        controller.isMultihop
+          ? `Registros do nó ${sensor.nodeId} devem ter nome e endereços positivos`
+          : `Registros do nó ${sensor.nodeId} devem ter nome e endereços entre ${firstNodeRegisterAddress(sensor.nodeId)} e ${lastNodeRegisterAddress(sensor.nodeId)}`,
       );
     }
 
     const conflictAddress = this.findConflictingRegisterAddress(
       sensor,
       currentSensors,
+      controller.isMultihop === true,
       sensorId,
     );
 
@@ -208,6 +219,7 @@ export class SensorsService {
   private findConflictingRegisterAddress(
     sensor: NewSensor | SensorWrite,
     currentSensors: ReadonlyArray<Sensor>,
+    isMultihop: boolean,
     sensorId?: number,
   ): number | undefined {
     const nextAddresses = new Set(
@@ -216,6 +228,10 @@ export class SensorsService {
 
     for (const currentSensor of currentSensors) {
       if (sensorId !== undefined && currentSensor.id === sensorId) {
+        continue;
+      }
+
+      if (isMultihop && currentSensor.nodeId !== sensor.nodeId) {
         continue;
       }
 

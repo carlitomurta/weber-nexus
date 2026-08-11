@@ -1,0 +1,36 @@
+name: Sync Release Tags
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync Workflow Dispatch Tags
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+      - run: node scripts/release/sync-release-workflow-tags.mjs
+
+      - name: Commit generated tag options
+        run: |
+          if git diff --quiet -- .github/workflows/nexus-release.yml; then
+            echo "Release tag options já estão sincronizadas."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/nexus-release.yml
+          git commit -m "chore(release): sync workflow tag options"
+          git push

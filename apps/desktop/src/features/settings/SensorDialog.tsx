@@ -16,6 +16,7 @@ interface SensorDialogProps {
   title: string;
   draft: SensorDraft;
   setDraft: (draft: SensorDraft) => void;
+  isMultihop: boolean;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -28,6 +29,7 @@ interface SensorFieldsProps {
 
 interface RegisterEditorProps {
   draft: SensorDraft;
+  isMultihop: boolean;
   registerDraft: SensorRegister;
   setRegisterDraft: (register: SensorRegister) => void;
   onAddRegister: () => void;
@@ -43,21 +45,24 @@ export function SensorDialog({
   title,
   draft,
   setDraft,
+  isMultihop,
   onSave,
   onCancel,
 }: SensorDialogProps) {
   const [registerDraft, setRegisterDraft] = useState<SensorRegister>({
     name: "",
-    address: nextRegisterAddress(draft.nodeId, draft.registers),
+    address: nextRegisterAddress(draft.nodeId, draft.registers, isMultihop),
     unit: "",
     isHealthCheck: false,
   });
 
   function updateNodeId(nodeId: number) {
-    const registers = draft.registers.map((register, index) => ({
-      ...register,
-      address: firstNodeRegisterAddress(nodeId) + index,
-    }));
+    const registers = isMultihop
+      ? draft.registers
+      : draft.registers.map((register, index) => ({
+          ...register,
+          address: firstNodeRegisterAddress(nodeId) + index,
+        }));
 
     setDraft({
       ...draft,
@@ -66,7 +71,7 @@ export function SensorDialog({
     });
     setRegisterDraft({
       ...registerDraft,
-      address: nextRegisterAddress(nodeId, registers),
+      address: nextRegisterAddress(nodeId, registers, isMultihop),
     });
   }
 
@@ -81,11 +86,15 @@ export function SensorDialog({
 
     if (
       !Number.isInteger(registerDraft.address) ||
-      registerDraft.address < firstAddress ||
-      registerDraft.address > lastAddress
+      registerDraft.address <= 0 ||
+      (!isMultihop &&
+        (registerDraft.address < firstAddress ||
+          registerDraft.address > lastAddress))
     ) {
       toast.error(
-        `O endereço deve ficar entre ${firstAddress} e ${lastAddress}.`,
+        isMultihop
+          ? "O endereço deve ser um inteiro positivo."
+          : `O endereço deve ficar entre ${firstAddress} e ${lastAddress}.`,
       );
       return;
     }
@@ -135,7 +144,7 @@ export function SensorDialog({
     });
     setRegisterDraft({
       name: "",
-      address: nextRegisterAddress(draft.nodeId, registers),
+      address: nextRegisterAddress(draft.nodeId, registers, isMultihop),
       scaleType: undefined,
       scaleFactor: undefined,
       unit: registerDraft.unit,
@@ -185,6 +194,7 @@ export function SensorDialog({
           </Field>
           <RegisterEditor
             draft={draft}
+            isMultihop={isMultihop}
             registerDraft={registerDraft}
             setRegisterDraft={setRegisterDraft}
             onAddRegister={addRegister}
@@ -265,6 +275,7 @@ function SensorFields({ draft, setDraft, onNodeIdChange }: SensorFieldsProps) {
 
 function RegisterEditor({
   draft,
+  isMultihop,
   registerDraft,
   setRegisterDraft,
   onAddRegister,
@@ -291,6 +302,7 @@ function RegisterEditor({
         <Field label="Endereço">
           <input
             type="number"
+            min={isMultihop ? 1 : firstNodeRegisterAddress(draft.nodeId)}
             className={`${inputCls} font-mono`}
             value={registerDraft.address}
             onChange={(event) =>

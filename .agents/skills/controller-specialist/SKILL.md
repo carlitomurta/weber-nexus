@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires node and typescript.
 metadata:
   author: agent-skills
-  version: "1.0"
+  version: "1.1"
   domain: development
   type: utility
   mode: assistive
@@ -34,17 +34,34 @@ The DXM supports multiple simultaneous protocols:
 ## Controller details
 
 The controller stores and outputs data from all registered sensors.
+Nexus currently supports two controller mapping types:
+
+- Performance: sensor remote register addresses must follow the node range formula.
+- Multihop: sensor remote register addresses are selected directly and are not derived from the node ID.
+
+Controller required fields:
+
+- Name
+- IP address
+- Polling time
+- Type: Performance or Multihop
+- Number of ports
 
 The hierarchy is as follows:
 
 The controller has several sensors, sensors have several registers, and registers can only have one address.
 If the communication is Modbus, the return will be a list of numbers ordered by the order in which the sensors were registered.
 
-A sensor must have a Modbus address, following the formula Register Number = (Node# × 16).
+For Performance controllers, a sensor must have a Modbus address following the formula Register Number = `(NodeId * 16) + 1` through `(NodeId * 16) + 16`.
 
-Therefore, for a sensor with NodeId 1, the first register address would be 17 and the last would be 31.
+Therefore, for a sensor with NodeId 1, the first register address would be 17 and the last would be 32.
 A controller can have several sensors with the same NodeId, but they cannot share the same register address.
 Each NodeId can have at most one status register for ONLINE/OFFLINE state; multiple status registers for the same NodeId are invalid and must be rejected.
+
+For Multihop controllers, the Node ID does not affect the remote register address.
+The user selects the register address directly based on the controller register table, without the Performance formula restriction.
+
+If a sensor uses a physical port, validate that the controller has an available port before creating or updating the sensor.
 
 In our case, we will only communicate via Modbus, so we cannot establish a relationship between sensor names and the order of register values ​​returned by the controller.
 
@@ -74,6 +91,8 @@ Use this [WLConfig](../../../packages/local_test/temp/WLConfig.xml) XML as an re
     - `localreg`: is the order number of the first register that the rule will include in the holding registers.
     - `name`: is the name of the rule, in our case will be the sensor name.
     - `remreg`: is the first address of the register, it respects the count. Example: if count is 2 and the first register is 17, it will add the registers address 17 and 18.
+    - `unit`: indicates the Modbus unit or node ID. For Multihop controllers, it can be duplicate and does not control the remote register address range.
+    - `port`: is the physical port where the sensor is connected. Each controller has a limited number of ports.
   - Rules with the same `name` should be imported into Nexus as one sensor with merged registers. Keep the original XML content unchanged when importing; only the Nexus sensor storage is merged.
 
 For our case, we can understand that the entire file is our controller, the `rtu_read` rules are the sensors of this controller, and the `local_regs` are the registers of the sensors, organized by order number.
@@ -99,7 +118,8 @@ The name of the file should ALWAYS be `WLConfig.xml` and follow the strict order
     - `<chunkIndex>` starts at 1 and increments after each sent chunk.
     - `<data>` chunk data.
 - Close the file with `CMD1003`.
-- After a successful upload, reset the controller with `CMD0200\n\r` so the new holding registers are available.
+- After a successful upload, reset the controller with `CMD0200\r\n` so the new holding registers are available.
+  Reconnect after restart and verify that the controller accepted the new map.
 
 ### Error Handling
 

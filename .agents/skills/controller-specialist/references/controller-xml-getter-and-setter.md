@@ -3,7 +3,7 @@ name: controller-xml-getter-and-setter
 description: "Guide for an AI agent to develop a reader and validator of an XML configuration file obtained via Modbus connection on port 8844 of a controller. Also, develop a creator and validator of the XML configuration file when any changes are made to the page settings registration (add/edit/remove - controller or sensor)."
 metadata:
   author: Carlito Murta
-  version: "1.0"
+  version: "1.1"
   domain: development
   type: utility
   mode: assistive
@@ -38,6 +38,8 @@ Use this [WLConfig](../packages/local_test/temp/WLConfig.xml) XML as an referenc
     - `localreg`: is the order number of the first register that the rule will include in the holding registers.
     - `name`: is the name of the rule, in our case will be the sensor name.
     - `remreg`: is the first address of the register, it respects the count. Example: if count is 2 and the first register is 17, it will add the registers address 17 and 18.
+    - `unit`: util for Multihop controllers only, can be duplicate, indicates the Node ID of the sensor.
+    - `port`: the port where the sensor is connected, each controller has limited physical ports.
 
 For our case, we can understand that the entire file is our controller, the `rtu_read` rules are the sensors of this controller, and the `local_regs` are the registers of the sensors, organized by order number.
 

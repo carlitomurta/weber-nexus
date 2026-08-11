@@ -115,10 +115,26 @@ describe('ControllersService XML sync behavior', () => {
 
     expect(
       controllerXmlConfigService.downloadControllerConfig,
-    ).toHaveBeenCalledWith('192.168.1.10');
+    ).toHaveBeenCalledWith('192.168.1.10', { isMultihop: undefined });
     expect(
       controllersRepository.insertControllerWithSensors,
     ).toHaveBeenCalled();
+  });
+
+  it('passes Multihop mode when creating a Multihop controller', async () => {
+    const input: NewController = {
+      name: 'DXM',
+      model: 'DXM1200',
+      ipAddress: '192.168.1.10',
+      isMultihop: true,
+      pollingIntervalMs: 300000,
+    };
+
+    await service.postController(input);
+
+    expect(
+      controllerXmlConfigService.downloadControllerConfig,
+    ).toHaveBeenCalledWith('192.168.1.10', { isMultihop: true });
   });
 
   it('stores controller model from XML device on create', async () => {
@@ -221,6 +237,20 @@ describe('ControllersService XML sync behavior', () => {
     );
   });
 
+  it('rejects changing controller type after creation', async () => {
+    await expect(
+      service.updateController({
+        ...controller,
+        isMultihop: true,
+      }),
+    ).rejects.toThrow('Tipo do controlador não pode ser alterado');
+
+    expect(controllersRepository.updateController).not.toHaveBeenCalled();
+    expect(
+      controllersRepository.updateControllerWithSensors,
+    ).not.toHaveBeenCalled();
+  });
+
   it('updates name, site and polling interval without XML sync', async () => {
     await service.updateController({
       ...controller,
@@ -252,7 +282,7 @@ describe('ControllersService XML sync behavior', () => {
 
     expect(
       controllerXmlConfigService.downloadControllerConfig,
-    ).toHaveBeenCalledWith('192.168.1.11');
+    ).toHaveBeenCalledWith('192.168.1.11', { isMultihop: false });
     expect(
       controllersRepository.updateControllerWithSensors,
     ).toHaveBeenCalledWith(

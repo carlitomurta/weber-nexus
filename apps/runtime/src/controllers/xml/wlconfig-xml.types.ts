@@ -17,9 +17,14 @@ export type ParsedWlConfig = {
   readonly sensors: Omit<NewSensor, 'controllerId'>[];
 };
 
+export type WlConfigParseOptions = {
+  readonly isMultihop?: boolean | null;
+};
+
 export type WlConfigBuildOptions = {
   readonly controllerModel?: string;
   readonly guid?: string;
+  readonly isMultihop?: boolean | null;
   readonly now?: Date;
 };
 

@@ -64,6 +64,16 @@ export function NewControllerForm({
           }
         />
       </Field>
+      <label className="flex h-9 items-center gap-2 rounded border border-border bg-background px-2.5 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={draft.isMultihop === true}
+          onChange={(event) =>
+            setDraft({ ...draft, isMultihop: event.target.checked })
+          }
+        />
+        Multihop
+      </label>
       <div className="flex justify-end gap-2 pt-1">
         <button
           onClick={onCancel}

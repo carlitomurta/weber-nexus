@@ -101,7 +101,6 @@ Required fields:
 
 - `name`
 - `ipAddress`
-- `model`
 
 Nexus must store:
 
@@ -168,6 +167,8 @@ Sensor metadata fields that do not require XML upload:
 - `model`
 - `location`
 - `description`
+- `port`
+- `unit`
 
 ### Sensor Register
 
@@ -182,6 +183,7 @@ Required fields:
 - Optional `scaleType`
 - Optional `scaleUsing`
 - Optional `unit`
+- Optional `port`
 
 Rules:
 
@@ -192,7 +194,7 @@ Rules:
 - Local register ranges must not overlap between active sensors.
 - Remote register ranges must not overlap for the same controller, Modbus unit, and node.
 
-## Sensor Node Address Rules
+## Performance Controller - Sensor Node Address Rules
 
 Nexus uses Banner wireless node addressing convention for the current sensor model.
 
@@ -219,6 +221,12 @@ Validation:
 - Duplicate remote register addresses are invalid within the same controller/unit/node range.
 - A rule with `remreg=17` and `count=2` consumes remote registers `17` and `18`.
 - A rule with `localreg=1` and `count=2` consumes local registers `1` and `2`.
+
+## Multihop Controller - Sensor Node Address Rules
+
+The Node ID does not affect the address, the register address number is unique for each id.
+
+Example: NodeID = 1, Address: Any number.
 
 ## XML File Rules
 
@@ -324,12 +332,13 @@ Rules:
 Each `<rule />` must include:
 
 - `name`: sensor/rule name.
-- `unit`: Modbus unit/server ID.
+- `unit`: Modbus unit/node ID.
 - `localreg`: first local register receiving data.
 - `remreg`: first remote register read from target device.
 - `count`: number of consecutive registers.
 - `remtype`: usually `hold_reg` for current Nexus mappings.
 - `remfmt`: currently `int` unless explicitly configured otherwise.
+- `port`: Physical port where sensor is connected. (optional)
 
 Reference-compatible default attributes:
 
@@ -344,7 +353,7 @@ Reference-compatible default attributes:
 Rules:
 
 - `localreg..localreg+count-1` must exist in `<local_regs>`.
-- `remreg..remreg+count-1` must fit the sensor node register range.
+- For performance controller should follow `remreg..remreg+count-1` must fit the sensor node register range.
 - Adjacent registers from the same sensor may be represented by one rule with `count > 1`.
 - Non-adjacent registers must use separate rules.
 - Keep rule names stable when updating a sensor unless user changed the sensor name.

@@ -21,6 +21,7 @@ import {
   type ParsedWlConfig,
   type WlConfigBuildOptions,
   type WlConfigDocument,
+  type WlConfigParseOptions,
 } from './wlconfig-xml.types';
 
 export {
@@ -28,6 +29,7 @@ export {
   type ParsedWlConfig,
   type WlConfigBuildOptions,
   type WlConfigDocument,
+  type WlConfigParseOptions,
 };
 export {
   defaultWlConfigTemplateXml,
@@ -77,7 +79,10 @@ export function cleanWlConfigXml(raw: string): string {
     .trim();
 }
 
-export function parseWlConfigXml(xml: string): ParsedWlConfig {
+export function parseWlConfigXml(
+  xml: string,
+  options: WlConfigParseOptions = {},
+): ParsedWlConfig {
   validateWlConfigXml(xml);
 
   const document = parser.parse(xml) as unknown;
@@ -88,7 +93,7 @@ export function parseWlConfigXml(xml: string): ParsedWlConfig {
     );
   }
 
-  const sensors = sensorsFromWlConfigDocument(document);
+  const sensors = sensorsFromWlConfigDocument(document, options);
 
   assertSingleStatusRegisterPerNode(sensors);
 
@@ -108,9 +113,12 @@ export function buildWlConfigXml(
 ): { xml: string; checksum: string } {
   assertSingleStatusRegisterPerNode(sensors);
 
-  const document = parseBaseWlConfigDocument(baseXml);
+  const document = parseBaseWlConfigDocument(baseXml, options);
   const configuration = document.configuration;
-  const { localRegisters, rules } = buildLocalRegistersAndRules(sensors);
+  const { localRegisters, rules } = buildLocalRegistersAndRules(
+    sensors,
+    options,
+  );
 
   applyFileInfoMetadata(document, options);
 
@@ -132,10 +140,13 @@ export function hashWlConfigXml(xml: string): string {
   return createHash('sha256').update(xml, 'utf8').digest('hex');
 }
 
-export function hasWlConfigFileInfo(xml: string | null | undefined): boolean {
+export function hasWlConfigFileInfo(
+  xml: string | null | undefined,
+  options: WlConfigParseOptions = {},
+): boolean {
   try {
     return xml?.trim()
-      ? readFileInfo(parseWlConfigXml(xml).document) !== undefined
+      ? readFileInfo(parseWlConfigXml(xml, options).document) !== undefined
       : false;
   } catch {
     return false;
@@ -144,11 +155,12 @@ export function hasWlConfigFileInfo(xml: string | null | undefined): boolean {
 
 export function hasReusableWlConfigFileInfo(
   xml: string | null | undefined,
+  options: WlConfigParseOptions = {},
 ): boolean {
   try {
     if (!xml?.trim()) return false;
 
-    const info = readFileInfo(parseWlConfigXml(xml).document);
+    const info = readFileInfo(parseWlConfigXml(xml, options).document);
 
     return info !== undefined && !isSyntheticFileInfo(info);
   } catch {
@@ -171,14 +183,15 @@ function validateWlConfigXml(xml: string): void {
 
 function parseBaseWlConfigDocument(
   baseXml: string | null | undefined,
+  options: WlConfigParseOptions = {},
 ): WlConfigDocument {
   try {
     if (baseXml?.trim()) {
-      return parseWlConfigXml(baseXml).document;
+      return parseWlConfigXml(baseXml, options).document;
     }
   } catch {
     // Usa template seguro quando registros legados não possuem snapshot XML.
   }
 
-  return parseWlConfigXml(defaultWlConfigTemplateXml()).document;
+  return parseWlConfigXml(defaultWlConfigTemplateXml(), options).document;
 }

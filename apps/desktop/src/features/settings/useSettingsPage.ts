@@ -123,6 +123,7 @@ export function useSettingsPage() {
         ipAddress: controllerDraft.ipAddress.trim(),
         site: controllerDraft.site?.trim() ?? "",
         port: controllerDraft.port,
+        isMultihop: controllerDraft.isMultihop === true,
         pollingIntervalMs: controllerDraft.pollingIntervalMs,
       },
       {
@@ -158,7 +159,8 @@ export function useSettingsPage() {
   function addSensor() {
     if (!selected) return;
 
-    const sensor = buildSensorPayload(sensorDraft, selected.id);
+    const isMultihop = selected.isMultihop === true;
+    const sensor = buildSensorPayload(sensorDraft, selected.id, isMultihop);
 
     if ("error" in sensor) {
       toast.error(sensor.error);
@@ -168,6 +170,8 @@ export function useSettingsPage() {
     const conflictAddress = findConflictingRegisterAddress(
       sensor.registers,
       selectedSensors,
+      isMultihop,
+      sensor.nodeId,
     );
 
     if (conflictAddress !== undefined) {
@@ -207,7 +211,15 @@ export function useSettingsPage() {
     const sensor = sensors.find((item) => item.id === editingSensorId);
     if (!sensor) return;
 
-    const payload = buildSensorPayload(sensorDraft, sensor.controllerId);
+    const sensorController =
+      controllers.find((controller) => controller.id === sensor.controllerId) ??
+      null;
+    const isMultihop = sensorController?.isMultihop === true;
+    const payload = buildSensorPayload(
+      sensorDraft,
+      sensor.controllerId,
+      isMultihop,
+    );
 
     if ("error" in payload) {
       toast.error(payload.error);
@@ -217,6 +229,8 @@ export function useSettingsPage() {
     const conflictAddress = findConflictingRegisterAddress(
       payload.registers,
       sensors.filter((item) => item.controllerId === sensor.controllerId),
+      isMultihop,
+      payload.nodeId,
       sensor.id,
     );
 
@@ -467,12 +481,18 @@ function isValidPollingInterval(pollingIntervalMs: number): boolean {
 function findConflictingRegisterAddress(
   registers: ReadonlyArray<Sensor["registers"][number]>,
   existingSensors: ReadonlyArray<Sensor>,
+  isMultihop: boolean,
+  nodeId: number,
   editingSensorId?: number,
 ): number | undefined {
   const nextAddresses = new Set(registers.map((register) => register.address));
 
   for (const sensor of existingSensors) {
     if (editingSensorId !== undefined && sensor.id === editingSensorId) {
+      continue;
+    }
+
+    if (isMultihop && sensor.nodeId !== nodeId) {
       continue;
     }
 

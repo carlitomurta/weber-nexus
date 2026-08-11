@@ -29,11 +29,11 @@ for (const packageFile of packageFiles) {
 await assertDirectoryHasSqlMigrations(
   path.join(repoRoot, "packages/database/migrations"),
 );
-await assertMaterializedLfsFile(
+await assertBundledResourceFile(
   path.join(repoRoot, "resources/influxdb/3.9.3/windows/influxdb3.exe"),
   10 * 1024 * 1024,
 );
-await assertMaterializedLfsFile(
+await assertBundledResourceFile(
   path.join(repoRoot, "resources/influxdb/3.9.3/linux/influxdb3"),
   10 * 1024 * 1024,
 );
@@ -75,14 +75,14 @@ async function assertFile(filePath) {
   }
 }
 
-async function assertMaterializedLfsFile(filePath, minimumBytes) {
+async function assertBundledResourceFile(filePath, minimumBytes) {
   await assertFile(filePath);
 
   const metadata = await stat(filePath);
 
   if (metadata.size < minimumBytes) {
     fail(
-      `Arquivo LFS obrigatório não foi materializado: ${path.relative(repoRoot, filePath)}.`,
+      `Recurso obrigatório não foi restaurado corretamente: ${path.relative(repoRoot, filePath)}.`,
     );
   }
 
@@ -98,7 +98,7 @@ async function assertMaterializedLfsFile(filePath, minimumBytes) {
         .startsWith("version https://git-lfs.github.com/spec/v1")
     ) {
       fail(
-        `Arquivo LFS obrigatório está como pointer: ${path.relative(repoRoot, filePath)}.`,
+        `Recurso obrigatório está como pointer LFS: ${path.relative(repoRoot, filePath)}.`,
       );
     }
   } finally {

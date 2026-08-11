@@ -37,8 +37,12 @@ jest.mock('@weber-nexus/repository', () => ({
 import type { Controller } from '@weber-nexus/repository';
 import { ControllerXmlConfigService } from './controller-xml-config.service';
 
-const controller: Pick<Controller, 'ipAddress' | 'model' | 'xmlConfig'> = {
+const controller: Pick<
+  Controller,
+  'ipAddress' | 'isMultihop' | 'model' | 'xmlConfig'
+> = {
   ipAddress: '192.168.1.1',
+  isMultihop: false,
   model: 'DXM1200',
   xmlConfig: `<?xml version="1.0" encoding="utf-8"?>
 <configuration>

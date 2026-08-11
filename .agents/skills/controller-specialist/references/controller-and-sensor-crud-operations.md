@@ -21,7 +21,9 @@ Required fields:
 
 - Name
 - Ip address
-- Model
+- Polling time
+- Type (Performance or Multihop)
+- Number of ports
 
 #### Controller Create
 
@@ -43,6 +45,7 @@ Non-upload fields:
 
 - Name
 - Polling interval
+- Number of ports
 
 When user requests an update on controller values, we should:
 
@@ -75,7 +78,7 @@ Required fields:
 
 When user requests to create a new sensor on a controller, we should:
 
-1. Validate the required fields.
+1. Validate the required fields, check if the controller can hold one more port if the sensor is using.
 2. Present the user a dialog to confirm the creation and syncronization.
 3. Update the XML configuration file first.
 4. Upload it to the phisical controller.
@@ -121,10 +124,20 @@ If confirmed:
 
 A sensor register is where the data from controller is get, we need them to mark what the numbers returned from the controller means.
 
-A register need to follow a very strict formula: (NodeId \* 16) where nodeId is the nodeId of the sensor where the register is attached.
+#### Sensor register at Performance Type Controller
+
+A register for Performance need to follow a very strict formula: (NodeId \* 16) where nodeId is the nodeId of the sensor where the register is attached.
 
 For example: Node ID = 1 can only have registers address from 17 to 32.
 
 Whe can create multiple sensors with same NodeID, but never the Node should have duplicate register addresses or surpass the formula.
 
 For example: sensor 1 = Node ID = 1 with registers 17,18,19,20 and sensor 2 = Node ID = 1 with registers 20,21,22. This should NEVER happen cause it's a case of surpass and should be validated.
+
+#### Sensor register at Multihop Type Controller
+
+A register for Multihop controller ignores the rules of Performance and does not need any formula, there is one register address for each data possible.
+
+The Node ID does not affect the register address number.
+
+For example: sensor Node ID = 11, the user selects the address number for it based on a table, without restrictions.

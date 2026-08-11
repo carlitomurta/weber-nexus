@@ -9,7 +9,12 @@ on:
       tag:
         description: "Tag SemVer existente, exemplo v1.2.3"
         required: true
-        type: string
+        default: "v1.0.0"
+        type: choice
+        options:
+          # release-tags:start
+          - v1.0.0
+          # release-tags:end
       channel:
         description: "Canal do manifesto Nexus"
         required: true
@@ -35,6 +40,8 @@ env:
   NEXUS_RELEASE_ROLLOUT: ${{ inputs.rollout || '100' }}
   NEXUS_GITHUB_OWNER: ${{ github.repository_owner }}
   NEXUS_GITHUB_REPO: ${{ github.event.repository.name }}
+  NEXUS_RESOURCES_RELEASE_TAG: resources-v3.9.3
+  NEXUS_RESOURCES_ARCHIVE: nexus-resources-v3.9.3.tar.gz
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -56,6 +63,22 @@ jobs:
       - run: corepack prepare yarn@4.14.1 --activate
       - run: yarn --version
       - run: yarn install --immutable
+
+      - name: Restore bundled resources
+        shell: pwsh
+        run: |
+          $resourceDir = Join-Path $env:RUNNER_TEMP "nexus-resources"
+          New-Item -ItemType Directory -Force -Path $resourceDir | Out-Null
+
+          gh release download $env:NEXUS_RESOURCES_RELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --pattern $env:NEXUS_RESOURCES_ARCHIVE `
+            --dir $resourceDir `
+            --clobber
+
+          $archivePath = Join-Path $resourceDir $env:NEXUS_RESOURCES_ARCHIVE
+          tar -xzf $archivePath -C $env:GITHUB_WORKSPACE
+
       - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
       - run: yarn workspace @weber-nexus/update-agent build
       - run: find packages/update-agent/dist -maxdepth 3 -type f | sort
@@ -86,6 +109,22 @@ jobs:
       - run: corepack prepare yarn@4.14.1 --activate
       - run: yarn --version
       - run: yarn install --immutable
+
+      - name: Restore bundled resources
+        shell: pwsh
+        run: |
+          $resourceDir = Join-Path $env:RUNNER_TEMP "nexus-resources"
+          New-Item -ItemType Directory -Force -Path $resourceDir | Out-Null
+
+          gh release download $env:NEXUS_RESOURCES_RELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --pattern $env:NEXUS_RESOURCES_ARCHIVE `
+            --dir $resourceDir `
+            --clobber
+
+          $archivePath = Join-Path $resourceDir $env:NEXUS_RESOURCES_ARCHIVE
+          tar -xzf $archivePath -C $env:GITHUB_WORKSPACE
+
       - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
       - run: yarn workspace @weber-nexus/desktop build:bundle
       - run: yarn workspace @weber-nexus/desktop build:windows
@@ -116,6 +155,22 @@ jobs:
       - run: corepack prepare yarn@4.14.1 --activate
       - run: yarn --version
       - run: yarn install --immutable
+
+      - name: Restore bundled resources
+        shell: pwsh
+        run: |
+          $resourceDir = Join-Path $env:RUNNER_TEMP "nexus-resources"
+          New-Item -ItemType Directory -Force -Path $resourceDir | Out-Null
+
+          gh release download $env:NEXUS_RESOURCES_RELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --pattern $env:NEXUS_RESOURCES_ARCHIVE `
+            --dir $resourceDir `
+            --clobber
+
+          $archivePath = Join-Path $resourceDir $env:NEXUS_RESOURCES_ARCHIVE
+          tar -xzf $archivePath -C $env:GITHUB_WORKSPACE
+
       - run: node scripts/release/validate-release-inputs.mjs --tag "${{ inputs.tag || github.ref_name }}"
       - run: yarn workspace @weber-nexus/desktop build:bundle
       - run: yarn workspace @weber-nexus/desktop build:linux

@@ -43,6 +43,7 @@ export class ControllersService {
     const parsedXml =
       await this.controllerXmlConfigService.downloadControllerConfig(
         controller.ipAddress,
+        { isMultihop: controller.isMultihop },
       );
     const controllerWithXmlModel: NewController = {
       ...controller,
@@ -90,6 +91,15 @@ export class ControllersService {
     currentController: Controller,
     nextController: ControllerWrite,
   ): Promise<Controller> {
+    if (
+      (currentController.isMultihop === true) !==
+      (nextController.isMultihop === true)
+    ) {
+      throw new BadRequestException(
+        'Tipo do controlador não pode ser alterado após o cadastro',
+      );
+    }
+
     if (currentController.ipAddress === nextController.ipAddress) {
       return this.controllersRepository.updateController(nextController);
     }
@@ -97,6 +107,7 @@ export class ControllersService {
     const parsedXml =
       await this.controllerXmlConfigService.downloadControllerConfig(
         nextController.ipAddress,
+        { isMultihop: nextController.isMultihop },
       );
     return this.controllersRepository.updateControllerWithSensors(
       {

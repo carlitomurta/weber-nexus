@@ -38,6 +38,16 @@ describe('controller DTO parsers', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('keeps Multihop undefined when the field is not submitted', () => {
+    expect(
+      parseCreateControllerDto({
+        name: 'DXM',
+        model: 'DXM1200',
+        ipAddress: '192.168.1.10',
+      }),
+    ).not.toHaveProperty('isMultihop');
+  });
+
   it('requires an id for updates', () => {
     expect(() =>
       parseUpdateControllerDto({

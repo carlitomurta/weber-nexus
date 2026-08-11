@@ -182,6 +182,134 @@ describe('SensorsService XML upload gate', () => {
     expect(sensorsRepository.insertSensor).not.toHaveBeenCalled();
   });
 
+  it('allows Multihop sensors with addresses outside the Performance node range', async () => {
+    const multihopController = { ...controller, isMultihop: true };
+    const newSensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 11,
+      name: 'DR11',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [{ name: 'Velocity', address: 147, unit: 'mm/s' }],
+      deletedAt: null,
+    };
+    const insertedSensor = sensorRecord({
+      id: 11,
+      nodeId: 11,
+      name: 'DR11',
+      registers: newSensor.registers,
+    });
+    controllersRepository.findById.mockResolvedValue(multihopController);
+    sensorsRepository.insertSensor.mockResolvedValue(insertedSensor);
+    controllerXmlConfigService.uploadControllerConfig.mockResolvedValue({
+      xmlConfig: '<configuration />',
+      xmlConfigChecksum: 'checksum',
+      xmlLastSyncedAt: new Date('2026-06-10T00:00:00.000Z'),
+    });
+
+    await expect(service.postSensor(newSensor)).resolves.toEqual(
+      insertedSensor,
+    );
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).toHaveBeenCalledWith(multihopController, [newSensor]);
+  });
+
+  it('allows Multihop sensors on different nodes to reuse the same register address', async () => {
+    const multihopController = { ...controller, isMultihop: true };
+    const existingSensor = sensorRecord({
+      id: 10,
+      nodeId: 11,
+      name: 'DR11',
+      registers: [{ name: 'Velocity', address: 147, unit: 'mm/s' }],
+    });
+    const newSensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 12,
+      name: 'DR12',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [{ name: 'Velocity', address: 147, unit: 'mm/s' }],
+      deletedAt: null,
+    };
+    const insertedSensor = sensorRecord({
+      id: 11,
+      nodeId: 12,
+      name: 'DR12',
+      registers: newSensor.registers,
+    });
+    controllersRepository.findById.mockResolvedValue(multihopController);
+    sensorsRepository.findByControllerId.mockResolvedValue([existingSensor]);
+    sensorsRepository.insertSensor.mockResolvedValue(insertedSensor);
+    controllerXmlConfigService.uploadControllerConfig.mockResolvedValue({
+      xmlConfig: '<configuration />',
+      xmlConfigChecksum: 'checksum',
+      xmlLastSyncedAt: new Date('2026-06-10T00:00:00.000Z'),
+    });
+
+    await expect(service.postSensor(newSensor)).resolves.toEqual(
+      insertedSensor,
+    );
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).toHaveBeenCalledWith(multihopController, [existingSensor, newSensor]);
+  });
+
+  it('rejects duplicate Multihop register addresses on the same node', async () => {
+    const multihopController = { ...controller, isMultihop: true };
+    const existingSensor = sensorRecord({
+      id: 10,
+      nodeId: 11,
+      name: 'DR11-A',
+      registers: [{ name: 'Velocity', address: 147, unit: 'mm/s' }],
+    });
+    const newSensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 11,
+      name: 'DR11-B',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [{ name: 'Velocity', address: 147, unit: 'mm/s' }],
+      deletedAt: null,
+    };
+    controllersRepository.findById.mockResolvedValue(multihopController);
+    sensorsRepository.findByControllerId.mockResolvedValue([existingSensor]);
+
+    await expect(service.postSensor(newSensor)).rejects.toThrow(
+      'Endereço de registrador 147 já está cadastrado',
+    );
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps Performance node range validation', async () => {
+    const newSensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 2,
+      name: 'Pump B',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [{ name: 'Temperature', address: 147, unit: 'C' }],
+      deletedAt: null,
+    };
+
+    await expect(service.postSensor(newSensor)).rejects.toThrow(
+      'Registros do nó 2 devem ter nome e endereços entre 33 e 48',
+    );
+    expect(
+      controllerXmlConfigService.uploadControllerConfig,
+    ).not.toHaveBeenCalled();
+  });
+
   it('rejects more than one status register for the same node', async () => {
     const existingSensor = sensorRecord({
       id: 10,

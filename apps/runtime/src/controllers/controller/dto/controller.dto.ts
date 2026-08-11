@@ -23,6 +23,7 @@ export function parseCreateControllerDto(value: unknown): CreateControllerDto {
     'Intervalo de coleta',
   );
   const port = optionalInteger(body, 'port', 'Porta');
+  const isMultihop = optionalBoolean(body, 'isMultihop');
 
   return {
     name: requiredString(body, 'name', 'Nome'),
@@ -30,7 +31,7 @@ export function parseCreateControllerDto(value: unknown): CreateControllerDto {
     ipAddress: requiredString(body, 'ipAddress', 'Endereço IP'),
     site: optionalString(body, 'site'),
     port: port ?? 0,
-    isMultihop: optionalBoolean(body, 'isMultihop') ?? false,
+    ...(isMultihop === undefined ? {} : { isMultihop }),
     pollingIntervalMs:
       pollingIntervalMs === undefined
         ? 300000

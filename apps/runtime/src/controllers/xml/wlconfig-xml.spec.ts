@@ -139,6 +139,82 @@ describe('WLConfig XML helpers', () => {
     );
   });
 
+  it('parses Multihop XML using unit as sensor node id', () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <local_regs>
+    <reg name="XV" num="1" scale_type="divide" scale_using="1000" units="mm/s" />
+    <reg name="RunFlag-DR11" num="8" />
+    <reg name="XV" num="9" scale_type="divide" scale_using="1000" units="mm/s" />
+    <reg name="RunFlag-DR12" num="16" />
+  </local_regs>
+  <rtu_read>
+    <rule count="1" localreg="1" name="dr11" port="5" remfmt="int" remreg="147" remtype="hold_reg" unit="11" />
+    <rule count="1" localreg="8" name="Copy of dr11" port="5" remfmt="int" remreg="139" remtype="hold_reg" unit="11" />
+    <rule count="1" localreg="9" name="dr12" port="5" remfmt="int" remreg="147" remtype="hold_reg" unit="12" />
+    <rule count="1" localreg="16" name="Copy of dr12" port="5" remfmt="int" remreg="139" remtype="hold_reg" unit="12" />
+  </rtu_read>
+</configuration>`;
+
+    const parsed = parseWlConfigXml(xml, { isMultihop: true });
+
+    expect(parsed.sensors).toEqual([
+      expect.objectContaining({ name: 'dr11', nodeId: 11 }),
+      expect.objectContaining({ name: 'Copy of dr11', nodeId: 11 }),
+      expect.objectContaining({ name: 'dr12', nodeId: 12 }),
+      expect.objectContaining({ name: 'Copy of dr12', nodeId: 12 }),
+    ]);
+  });
+
+  it('auto-detects Multihop XML when the controller type was not submitted', () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <local_regs>
+    <reg name="XV" num="1" scale_type="divide" scale_using="1000" units="mm/s" />
+    <reg name="RunFlag-DR11" num="8" />
+    <reg name="XV" num="9" scale_type="divide" scale_using="1000" units="mm/s" />
+    <reg name="RunFlag-DR12" num="16" />
+  </local_regs>
+  <rtu_read>
+    <rule count="1" localreg="1" name="dr11" port="5" remfmt="int" remreg="147" remtype="hold_reg" unit="11" />
+    <rule count="1" localreg="8" name="Copy of dr11" port="5" remfmt="int" remreg="139" remtype="hold_reg" unit="11" />
+    <rule count="1" localreg="9" name="dr12" port="5" remfmt="int" remreg="147" remtype="hold_reg" unit="12" />
+    <rule count="1" localreg="16" name="Copy of dr12" port="5" remfmt="int" remreg="139" remtype="hold_reg" unit="12" />
+  </rtu_read>
+</configuration>`;
+
+    const parsed = parseWlConfigXml(xml);
+
+    expect(parsed.sensors).toEqual([
+      expect.objectContaining({ name: 'dr11', nodeId: 11 }),
+      expect.objectContaining({ name: 'Copy of dr11', nodeId: 11 }),
+      expect.objectContaining({ name: 'dr12', nodeId: 12 }),
+      expect.objectContaining({ name: 'Copy of dr12', nodeId: 12 }),
+    ]);
+  });
+
+  it('keeps Performance validation when Multihop is explicitly false', () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <local_regs>
+    <reg name="XV" num="1" scale_type="divide" scale_using="1000" units="mm/s" />
+    <reg name="RunFlag-DR11" num="8" />
+    <reg name="XV" num="9" scale_type="divide" scale_using="1000" units="mm/s" />
+    <reg name="RunFlag-DR12" num="16" />
+  </local_regs>
+  <rtu_read>
+    <rule count="1" localreg="1" name="dr11" port="5" remfmt="int" remreg="147" remtype="hold_reg" unit="11" />
+    <rule count="1" localreg="8" name="Copy of dr11" port="5" remfmt="int" remreg="139" remtype="hold_reg" unit="11" />
+    <rule count="1" localreg="9" name="dr12" port="5" remfmt="int" remreg="147" remtype="hold_reg" unit="12" />
+    <rule count="1" localreg="16" name="Copy of dr12" port="5" remfmt="int" remreg="139" remtype="hold_reg" unit="12" />
+  </rtu_read>
+</configuration>`;
+
+    expect(() => parseWlConfigXml(xml, { isMultihop: false })).toThrow(
+      'Nó 8 deve ter apenas um registrador de status',
+    );
+  });
+
   it('reads controller model from file info device', () => {
     const parsed = parseWlConfigXml(xmlWithFileInfo);
 
@@ -193,6 +269,36 @@ describe('WLConfig XML helpers', () => {
       }),
     );
     expect(parsed.sensors[0].registers).toHaveLength(2);
+  });
+
+  it('builds Multihop XML using sensor node id as rule unit', () => {
+    const sensor: NewSensor = {
+      controllerId: 1,
+      nodeId: 11,
+      name: 'DR11',
+      description: null,
+      model: null,
+      location: null,
+      operationalStatus: 'active',
+      registers: [
+        {
+          name: 'Velocity',
+          address: 147,
+          scaleType: 'divide',
+          scaleFactor: 1000,
+          unit: 'mm/s',
+        },
+      ],
+      deletedAt: null,
+    };
+
+    const result = buildWlConfigXml(validXml, [sensor], {
+      isMultihop: true,
+    });
+
+    expect(XMLValidator.validate(result.xml)).toBe(true);
+    expect(result.xml).toContain('remreg="147"');
+    expect(result.xml).toContain('unit="11"');
   });
 
   it('rejects generated XML with more than one status register for a node', () => {

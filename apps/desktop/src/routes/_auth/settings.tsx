@@ -82,6 +82,7 @@ function AdminPage() {
             settings.editingSensorId !== null ? "Editar sensor" : "Novo sensor"
           }
           draft={settings.sensorDraft}
+          isMultihop={settings.selected?.isMultihop === true}
           setDraft={settings.setSensorDraft}
           onSave={settings.saveSensor}
           onCancel={settings.closeSensorDialog}

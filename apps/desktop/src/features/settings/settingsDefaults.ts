@@ -6,6 +6,7 @@ export const emptyController: ControllerDraft = {
   ipAddress: "",
   site: "",
   port: null,
+  isMultihop: false,
   pollingIntervalMs: 10000,
 };
 

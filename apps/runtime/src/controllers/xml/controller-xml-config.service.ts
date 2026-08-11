@@ -53,9 +53,12 @@ export class ControllerXmlConfigService {
     private readonly runtimeEnv: RuntimeEnvService,
   ) {}
 
-  async downloadControllerConfig(ipAddress: string): Promise<ParsedWlConfig> {
+  async downloadControllerConfig(
+    ipAddress: string,
+    options: { readonly isMultihop?: boolean | null } = {},
+  ): Promise<ParsedWlConfig> {
     if (this.runtimeEnv.isControllerXmlHardwareSyncDisabled()) {
-      const parsed = parseWlConfigXml(defaultWlConfigTemplateXml());
+      const parsed = parseWlConfigXml(defaultWlConfigTemplateXml(), options);
 
       this.logger.warn(
         `Download de WLConfig.xml ignorado em ambiente de teste para ${ipAddress}.`,
@@ -70,6 +73,7 @@ export class ControllerXmlConfigService {
       const parsed = await this.parseDownloadedControllerXml(
         ipAddress,
         cleanedXml,
+        options,
       );
 
       this.logger.info(
@@ -88,9 +92,10 @@ export class ControllerXmlConfigService {
   private async parseDownloadedControllerXml(
     ipAddress: string,
     xml: string,
+    options: { readonly isMultihop?: boolean | null },
   ): Promise<ParsedWlConfig> {
     try {
-      return parseWlConfigXml(xml);
+      return parseWlConfigXml(xml, options);
     } catch (error) {
       if (error instanceof WlConfigXmlError) {
         await this.writeInvalidXmlDiagnostic(ipAddress, xml, error);
@@ -132,7 +137,9 @@ export class ControllerXmlConfigService {
       );
     }
 
-    const parsed = await this.downloadControllerConfig(controller.ipAddress);
+    const parsed = await this.downloadControllerConfig(controller.ipAddress, {
+      isMultihop: controller.isMultihop === true,
+    });
 
     if (parsed.checksum === controller.xmlConfigChecksum) {
       return {
@@ -157,7 +164,7 @@ export class ControllerXmlConfigService {
   }
 
   async uploadControllerConfig(
-    controller: Pick<Controller, 'ipAddress' | 'xmlConfig'>,
+    controller: Pick<Controller, 'ipAddress' | 'xmlConfig' | 'isMultihop'>,
     sensors: ReadonlyArray<Sensor | NewSensor>,
   ): Promise<{
     xmlConfig: string;
@@ -165,7 +172,9 @@ export class ControllerXmlConfigService {
     xmlLastSyncedAt: Date;
   }> {
     const baseXml = await this.resolveBaseXmlForUpload(controller);
-    const xmlConfig = buildWlConfigXml(baseXml, sensors);
+    const xmlConfig = buildWlConfigXml(baseXml, sensors, {
+      isMultihop: controller.isMultihop === true,
+    });
     const uploadPlan = createWlConfigUploadPlan(xmlConfig.xml);
 
     this.logger.info(
@@ -208,14 +217,20 @@ export class ControllerXmlConfigService {
   }
 
   private async resolveBaseXmlForUpload(
-    controller: Pick<Controller, 'ipAddress' | 'xmlConfig'>,
+    controller: Pick<Controller, 'ipAddress' | 'xmlConfig' | 'isMultihop'>,
   ): Promise<string | null | undefined> {
-    if (hasReusableWlConfigFileInfo(controller.xmlConfig)) {
+    if (
+      hasReusableWlConfigFileInfo(controller.xmlConfig, {
+        isMultihop: controller.isMultihop === true,
+      })
+    ) {
       return controller.xmlConfig;
     }
 
     try {
-      const parsed = await this.downloadControllerConfig(controller.ipAddress);
+      const parsed = await this.downloadControllerConfig(controller.ipAddress, {
+        isMultihop: controller.isMultihop === true,
+      });
 
       return parsed.xml;
     } catch (error) {
